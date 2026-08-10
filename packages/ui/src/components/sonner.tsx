@@ -30,14 +30,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
           '--border-radius': 'var(--radius)',
         } as React.CSSProperties
       }
-      /*
-       * `pointer-events-none`: o toast é `fixed` e intercepta o clique no botão
-       * embaixo dele por ~4 s — nenhuma disposição de layout resolve, porque abaixo
-       * de 600px ele ocupa a largura toda.
-       *
-       * O custo é perder o arrastar-para-dispensar e o pausar-no-hover (ver a
-       * duração dos toasts longos em `apps/web/src/lib/storage-error.ts`).
-       */
       toastOptions={{
         classNames: {
           toast: 'cn-toast pointer-events-none',

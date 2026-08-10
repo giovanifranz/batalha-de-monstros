@@ -12,8 +12,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Single: Story = {
-  // As props são uma união discriminada em `type`, e o CSF3 exige que `args` escolha
-  // um ramo mesmo quando a story renderiza JSX explícito abaixo.
   args: { type: 'single' },
   render: () => (
     <ToggleGroup type="single" defaultValue="bold" aria-label="Formatação de texto">
@@ -29,13 +27,11 @@ export const Single: Story = {
     </ToggleGroup>
   ),
   play: async ({ canvas, userEvent }) => {
-    // O Radix expõe cada item de um `type="single"` como `role="radio"`, não como botão.
     const italic = canvas.getByRole('radio', { name: 'Itálico' });
     await expect(italic).toHaveAttribute('aria-checked', 'false');
 
     await userEvent.click(italic);
 
-    // type="single": selecionar um item desliga os outros.
     await expect(italic).toHaveAttribute('aria-checked', 'true');
     await expect(canvas.getByRole('radio', { name: 'Negrito' })).toHaveAttribute(
       'aria-checked',

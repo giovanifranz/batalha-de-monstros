@@ -27,19 +27,12 @@ export type BattleResult = {
 
 export const MIN_DAMAGE = 1;
 
-/**
- * Rede de segurança. `simulateBattle` não valida em tempo de execução: para um
- * monstro válido pelo schema o pior caso é 599 turnos, mas uma chamada direta
- * com HP ≥ 10 001 nos dois lados alcança este limite de verdade.
- */
 const MAX_TURNS = 20_000;
 
 const other = (side: Side): Side => (side === 'left' ? 'right' : 'left');
 
 /** Regra do jogo: dano = ataque - defesa; se ataque <= defesa, dano = 1. */
 export function calculateDamage(attack: number, defense: number): number {
-  // A condição compara ataque e defesa, não o dano bruto com o piso: as duas só
-  // coincidem enquanto o piso valer 1.
   return attack > defense ? attack - defense : MIN_DAMAGE;
 }
 
@@ -59,10 +52,6 @@ export function resolveFirstAttacker(left: Monster, right: Monster): Side {
   return 'left';
 }
 
-/**
- * Roda a batalha inteira de uma vez e devolve o log completo.
- * Função pura: mesmos monstros, mesmo resultado. A UI só reproduz o log.
- */
 export function simulateBattle(left: Monster, right: Monster): BattleResult {
   if (left.hp <= 0 || right.hp <= 0) {
     throw new Error('Ambos os monstros precisam começar com HP maior que zero.');
@@ -91,8 +80,6 @@ export function simulateBattle(left: Monster, right: Monster): BattleResult {
     const defenderHpAfter = Math.max(0, defenderHpBefore - damage);
 
     hp[defender] = defenderHpAfter;
-    // Conta o HP realmente removido (com o clamp em 0), não o `damage` bruto —
-    // num golpe de overkill os dois divergem de propósito.
     totalDamage[attacker] += defenderHpBefore - defenderHpAfter;
 
     turns.push({
@@ -122,7 +109,6 @@ export function simulateBattle(left: Monster, right: Monster): BattleResult {
   };
 }
 
-/** HP de cada lado depois de aplicar os `appliedTurns` primeiros turnos. */
 export function hpAfterTurns(
   result: BattleResult,
   startHp: Record<Side, number>,

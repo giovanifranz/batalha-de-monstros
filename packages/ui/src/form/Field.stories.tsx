@@ -32,14 +32,11 @@ export const ComErro: Story = {
     const input = canvas.getByPlaceholderText('Como te chamamos?');
     const message = canvas.getByRole('alert');
 
-    // O painel de a11y só confirma que existe `aria-describedby`; isto prova que ele aponta para o id certo.
     await expect(input.getAttribute('aria-describedby')).toBe(message.id);
     await expect(input).toHaveAttribute('aria-invalid', 'true');
   },
 };
 
-// Com hint E erro juntos, o <p> do hint não é renderizado: o `aria-describedby`
-// não pode apontar para um hintId que não existe no DOM.
 export const ComDicaEErro: Story = {
   args: {
     label: 'Nome',

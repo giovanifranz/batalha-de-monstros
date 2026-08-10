@@ -31,7 +31,6 @@ export const AsLink: Story = {
     </Badge>
   ),
   play: async ({ canvas }) => {
-    // `asChild` funde as classes no `<a>` real em vez de envolvê-lo.
     const link = canvas.getByRole('link', { name: 'Novidades' });
     await expect(link).toHaveAttribute('href', '#novidades');
   },

@@ -5,8 +5,6 @@ packages:
 catalogMode: prefer
 
 catalog:
-  # vite-plus is the global `vp` CLI's project-local companion package (types +
-  # runtime for vite.config.ts). Pinned to match the installed `vp` version.
   vite: npm:@voidzero-dev/vite-plus-core@0.2.8
   vite-plus: 0.2.8
   react: ^19.2.8
@@ -18,9 +16,6 @@ catalog:
   '@tailwindcss/vite': ^4.3.3
   '@vitejs/plugin-react': ^6.0.5
   'babel-plugin-react-compiler': 1.0.0
-  # @vitejs/plugin-react 6 é oxc-only; React Compiler agora entra via
-  # @rolldown/plugin-babel + reactCompilerPreset (peer deps exigidas pelo
-  # próprio pacote). Ver packages/ui/vite.config.ts.
   '@rolldown/plugin-babel': ^0.2.3
   '@babel/core': 8.0.1
   '@types/babel__core': ^7.20.5
@@ -29,33 +24,18 @@ catalog:
   '@tanstack/react-router': ^1.170.23
   '@tanstack/router-plugin': ^1.168.27
   '@tanstack/react-form': ^1.33.4
-  # Persistência do roster: createCollection(localStorageCollectionOptions(...))
-  # de @tanstack/db. packages/infra só importa este — fica livre de React. Ver
-  # decisão sobre RxDB revertido.
   '@tanstack/db': ^0.6.17
-  # useLiveQuery do lado do app (apps/web), sobre a coleção que packages/infra
-  # expõe. @tanstack/react-db@0.1.95 fixa "@tanstack/db": "0.6.17" como
-  # dependência direta EXATA — o mesmo padrão de pin que já derrubou o
-  # rxdb-db-collection (ver shared-context). Mover os dois juntos.
   '@tanstack/react-db': ^0.1.95
-  nanoid: ^6.0.1
   nuqs: ^2.9.5
   xstate: ^5.32.5
   '@xstate/react': ^6.1.0
   '@xstate/store': ^4.2.2
-  # NÃO usar @xstate/test: peer `xstate: ^4.29.0`, é v4-only. O `createTestModel`
-  # migrou para cá, e é ele que gera os caminhos sobre a máquina de seleção.
   '@xstate/graph': ^3.0.4
-  # NÃO usar @xstate/immer: peer `xstate: ^4.37.2`, também v4-only. O `produce`
-  # entra direto, porque `assign` aceita o contexto completo como retorno.
   immer: ^11.1.16
   'lucide-react': ^1.30.0
   'class-variance-authority': ^0.7.1
   clsx: ^2.1.1
   'tailwind-merge': ^3.6.0
-  # Precisa bater EXATO com o vitest que o vite-plus embute: o runner do Stryker
-  # declara `vitest` como peer sem empacotar o próprio, e duas versões na árvore
-  # fazem a mutação rodar contra um Vitest diferente do `vp test`.
   vitest: 4.1.10
   '@stryker-mutator/core': 9.6.1
   '@stryker-mutator/vitest-runner': 9.6.1
@@ -70,36 +50,10 @@ catalog:
   '@storybook/react-vite': ^10.5.7
   '@storybook/addon-a11y': ^10.5.7
   '@storybook/addon-vitest': ^10.5.7
-  # O motor do axe, usado direto contra o APP em execução em desenvolvimento —
-  # complementa o addon acima, que só enxerga o que uma story renderiza.
-  #
-  # NÃO é o `@axe-core/react`: aquele adaptador instrumenta `componentDidMount`
-  # de componentes de CLASSE e chama `ReactDOM.findDOMNode`, que o React 19
-  # removeu. Neste app (100% componentes de função, JSX automático) ele fazia
-  # UMA análise no boot, contra um `document.body` ainda vazio, e nunca mais.
-  # Medido no próprio app, não deduzido da documentação.
-  #
-  # Só devDependency: o import é dinâmico dentro de `import.meta.env.DEV` e some
-  # do bundle de produção (verificado no dist).
-  'axe-core': ^4.13.0
-  # Mesma regra do `vitest` acima: precisam bater EXATO com o que o
-  # @storybook/addon-vitest e o vite-plus embutem.
   '@vitest/browser-playwright': 4.1.10
   '@vitest/coverage-v8': 4.1.10
   playwright: ^1.62.1
   '@playwright/test': ^1.62.1
-  # Regressão visual: compara os PNGs de cada story com a baseline e emite o
-  # relatório. Quem TIRA as fotos é o Playwright acima, em
-  # `packages/ui/scripts/vrt.ts` — não há dependência de captura aqui.
-  #
-  # NÃO é o `storycap`, o companheiro histórico do reg-suit. O modo "managed"
-  # dele (parâmetros `screenshot` por story) depende de `@storybook/manager-api`
-  # e `@storybook/preview-api`, pacotes que o Storybook 9 absorveu em
-  # `storybook/manager-api` e `storybook/preview-api`; um addon apontando para
-  # os antigos é DESCARTADO EM SILÊNCIO pelo Storybook 10 — o build passa e
-  # `sb-addons/` sai sem o bundle dele. E o modo simples, que funciona, trava com
-  # uma story faltando em parte das execuções, deixando processos órfãos para
-  # trás. Medido, não deduzido.
   reg-suit: 0.14.5
 
 overrides:
@@ -114,17 +68,4 @@ minimumReleaseAgeExclude:
   - '@tanstack/react-form@1.33.4'
 allowBuilds:
   msw: false
-  # Decisão registrada, não preferência: sem uma entrada aqui o pnpm ENCERRA
-  # `vp install` com ERR_PNPM_IGNORED_BUILDS e código 1 num clone novo — a
-  # instalação termina completa, mas o comando "falha", o que quebra o CI e faz
-  # o segundo passo do README parecer defeituoso. (No repo já instalado o erro
-  # não aparece: a decisão fica gravada no node_modules/.modules.yaml, então
-  # isto só se manifesta em ambiente limpo — medido nos dois.)
-  #
-  # `false` e não `true` porque o postinstall do esbuild só valida/baixa o
-  # binário nativo do jeito antigo; as versões atuais entregam a plataforma por
-  # pacote opcional (@esbuild/darwin-arm64 e afins), e ele chega transitivamente
-  # pelo Storybook e pelo próprio vite-plus. Verificado num clone limpo com o
-  # script ignorado: `vp run ready` (check + 94 unitários + 90 stories + build),
-  # os 33 cenários do Playwright e os dois Strykers passam.
   esbuild: false

@@ -9,13 +9,10 @@ import {
   battleMachine,
   selectCurrentTurn,
   selectHp,
+  sendIfActive,
   type BattleSnapshot,
 } from './battle.machine.ts';
 
-/*
- * Duelo curto conferido na mão: 30-5 = 25 tira a direita de 30 para 5; 20-10 = 10
- * tira a esquerda de 40 para 30; outro 25 zera a direita. Três turnos, dois rounds.
- */
 const FAST: Monster = {
   id: 'fast',
   name: 'Fast',
@@ -46,15 +43,8 @@ function startActor(speed = 1) {
   return actor;
 }
 
-/**
- * Roda a batalha inteira em passos finos e devolve o último frame. O teto de
- * passos é obrigatório: `advanceTimersByTime` roda num laço SÍNCRONO que o
- * timeout do Vitest não interrompe, então uma máquina que parasse de avançar
- * penduraria o `vp test` inteiro em vez de falhar.
- */
 function playToEnd(actor: ReturnType<typeof startActor>, stepMs = 50): BattleSnapshot {
   const expectedMs = INTRO_MS + result.turns.length * (ANNOUNCE_MS + IMPACT_MS);
-  // Folga de 2x sobre o pior caso conhecido (velocidade 1x).
   const maxSteps = Math.ceil((expectedMs * 2) / stepMs);
 
   let snapshot = actor.getSnapshot();
@@ -172,30 +162,23 @@ describe('battleMachine', () => {
   });
 
   it('não encurta a batida em curso quando a velocidade muda no meio dela', () => {
-    // Arrange: a abertura já passou; a batida de anúncio começou em 1x.
+    // Arrange
     const actor = startActor();
     vi.advanceTimersByTime(INTRO_MS);
 
     // Act
     actor.send({ type: 'speed.changed', speed: 4 });
 
-    // Assert: a batida em curso mantém os 900 ms com que foi agendada — em 4x já teria acabado aos 225 ms.
+    // Assert
     vi.advanceTimersByTime(ANNOUNCE_MS / 4);
     expect(actor.getSnapshot().hasTag('announcing')).toBe(true);
 
-    // ...e a SEGUINTE já sai encurtada: aos 2300 ms a máquina anuncia o turno 1,
-    // enquanto em 1x ainda estaria no impacto do turno 0.
     vi.advanceTimersByTime(ANNOUNCE_MS - ANNOUNCE_MS / 4 + IMPACT_MS / 4);
     const nextBeat = actor.getSnapshot();
     expect(nextBeat.hasTag('announcing')).toBe(true);
     expect(nextBeat.context.turnIndex).toBe(1);
   });
 
-  /**
-   * O invariante é a EXCLUSIVIDADE das tags, não o aninhamento: o frame ambíguo
-   * (uma carta com o anel de ataque aceso durante a animação de golpe recebido)
-   * só existe se um ÚNICO snapshot carregar 'announcing' e 'impacting'.
-   */
   it('nunca carrega as tags de anúncio e de impacto no mesmo snapshot', () => {
     // Arrange
     const actor = startActor();
@@ -212,5 +195,39 @@ describe('battleMachine', () => {
       false,
     ]);
     expect([impacting.hasTag('announcing'), impacting.hasTag('impacting')]).toEqual([false, true]);
+  });
+});
+
+describe('sendIfActive', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('entrega o evento enquanto a batalha está rodando', () => {
+    // Arrange
+    const actor = startActor();
+
+    // Act
+    sendIfActive(actor, { type: 'speed.changed', speed: 4 });
+
+    // Assert
+    expect(actor.getSnapshot().context.speed).toBe(4);
+  });
+
+  it('engole o evento depois que a batalha terminou', () => {
+    // Arrange
+    const actor = startActor();
+    actor.send({ type: 'battle.skip' });
+
+    // Act
+    sendIfActive(actor, { type: 'speed.changed', speed: 4 });
+
+    // Assert
+    expect(actor.getSnapshot().status).toBe('done');
+    expect(actor.getSnapshot().context.speed).toBe(1);
   });
 });

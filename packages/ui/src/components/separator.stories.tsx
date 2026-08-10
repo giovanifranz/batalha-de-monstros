@@ -39,7 +39,6 @@ export const NonDecorative: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    // `decorative=false` expõe `role="separator"`; o padrão some da árvore de acessibilidade.
     await expect(canvas.getByRole('separator')).toBeVisible();
   },
 };

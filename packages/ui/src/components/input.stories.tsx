@@ -22,7 +22,6 @@ export const Filled: Story = {
   args: { placeholder: 'Digite seu nome' },
   play: async ({ canvas, userEvent }) => {
     const input = canvas.getByPlaceholderText('Digite seu nome');
-    // Sem `delay`: os tipos de `storybook/test` deste projeto não o aceitam em `userEvent.type`.
     await userEvent.type(input, 'Ana Souza');
     await expect(input).toHaveValue('Ana Souza');
   },

@@ -9,23 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // O hover ESCURECE em vez de desbotar: com `hover:bg-primary/80` o rótulo
-        // BRANCO caía para 3.51 no claro. Misturando preto: 5.77 (repouso 4.55).
         default:
           'bg-primary text-primary-foreground hover:bg-[color-mix(in_oklch,var(--primary),black_10%)]',
-        // Sem `dark:bg-input/*`: no escuro `--input` é mais CLARO que a superfície e
-        // empurrava o fundo na direção do rótulo (4.24 em repouso, 3.41 no hover).
-        // Sem eles: 5.61 e 4.59.
         outline:
           'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input',
-        // Mistura PRETO, não `--foreground`: este inverte de direção entre os temas e
-        // no escuro clarearia o fundo na direção do rótulo BRANCO (4.51). Com preto:
-        // 6.34, contra 5.03 do repouso.
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),black_10%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
         ghost:
           'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
-        // `--destructive` pinta o tint, `--destructive-ink` pinta o rótulo.
         destructive:
           'bg-destructive/10 text-destructive-ink hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
         link: 'text-primary underline-offset-4 hover:underline',

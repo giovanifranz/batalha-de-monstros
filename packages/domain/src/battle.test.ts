@@ -134,7 +134,7 @@ describe('simulateBattle', () => {
     expect(result.first).toBe('left');
     expect(result.winner).toBe('left');
     expect(result.loser).toBe('right');
-    expect(result.turns).toHaveLength(3); // left, right, left
+    expect(result.turns).toHaveLength(3);
     expect(result.turns.at(-1)?.defenderHpAfter).toBe(0);
   });
 
@@ -189,7 +189,6 @@ describe('simulateBattle', () => {
     const result = simulateBattle(left, right);
 
     // Assert
-    // 20 de HP, 1 de dano por golpe, esquerda começa -> vence no turno 39.
     expect(result.winner).toBe('left');
     expect(result.turns).toHaveLength(39);
   });
@@ -253,8 +252,8 @@ describe('simulateBattle', () => {
     const { totalDamage } = simulateBattle(left, right);
 
     // Assert
-    expect(totalDamage.left).toBe(100); // 50 + 50
-    expect(totalDamage.right).toBe(30); // 30 num único contra-ataque
+    expect(totalDamage.left).toBe(100);
+    expect(totalDamage.right).toBe(30);
   });
 
   it('no golpe fatal, soma o HP que sobrava no perdedor, não o ataque bruto', () => {

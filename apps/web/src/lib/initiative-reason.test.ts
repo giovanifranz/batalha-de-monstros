@@ -60,11 +60,8 @@ describe('initiativeReason', () => {
     expect(reason).toBe('empate total — o desempate fica com o Lutador 1');
   });
 
-  // Os dois testes abaixo descrevem começos que o domínio de HOJE não produz, e
-  // que uma versão em cascata explicaria com uma frase falsa.
-
   it('fica calado quando quem começou era o mais lento', () => {
-    // Arrange: a direita é mais lenta e mesmo assim começou.
+    // Arrange
     const fighters = fightersOf(monster({ speed: 90 }), monster({ speed: 10 }));
 
     // Act
@@ -88,14 +85,22 @@ describe('initiativeReason', () => {
     expect(reason).toBeNull();
   });
 
-  /**
-   * O canário: quem começa vem sempre do `resolveFirstAttacker` do domínio, então
-   * um critério novo lá faz algum par cair no `null` e este teste fica vermelho.
-   * CADA par entra nas DUAS ordenações de propósito — um critério baseado em
-   * valor concorda com o desempate-pela-esquerda em no máximo uma delas.
-   */
+  it('fica calado quando a velocidade empatou e quem começou tinha o ataque menor', () => {
+    // Arrange
+    const fighters = fightersOf(
+      monster({ speed: 60, attack: 20 }),
+      monster({ speed: 60, attack: 90 }),
+    );
+
+    // Act
+    const reason = initiativeReason(fighters, 'left');
+
+    // Assert
+    expect(reason).toBeNull();
+  });
+
   it('explica todo começo que o domínio decide hoje', () => {
-    // Arrange: os três degraus conhecidos, mais defesa e HP nas duas ordenações.
+    // Arrange
     const pairs: [Monster, Monster][] = [
       [monster({ speed: 80 }), monster({ speed: 40 })],
       [monster({ speed: 40 }), monster({ speed: 80 })],

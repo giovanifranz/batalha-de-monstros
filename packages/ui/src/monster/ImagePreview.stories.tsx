@@ -29,8 +29,6 @@ export const Valida: Story = {
   },
 };
 
-// `data:` inválida, e nunca um host `.invalid`: aquele nome não resolve, mas a
-// resolução ainda passa pelo DNS e o `onError` chega tarde demais para o `waitFor`.
 export const UrlQuebrada: Story = {
   args: { src: 'data:image/png;base64,quebrada', alt: 'Monstro' },
   play: async ({ canvas }) => {

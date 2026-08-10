@@ -1,5 +1,6 @@
 import type { Side } from '@arena/domain/battle';
 import type { Monster } from '@arena/domain/monster';
+import { toMonster, type RosterCollection } from '@arena/infra/roster/collection';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@arena/ui/components/alert';
 import { Button } from '@arena/ui/components/button';
 import { Card, CardContent } from '@arena/ui/components/card';
@@ -12,18 +13,13 @@ import { MonsterFilters } from '@/components/MonsterFilters.tsx';
 import { MonsterPagination } from '@/components/MonsterPagination.tsx';
 import { useMonsterBrowser } from '@/hooks/useMonsterBrowser.ts';
 import { BattleSetupActor } from '@/machines/battle-setup.context.tsx';
-import { validateBrowserSearch } from '@/search-params.ts';
+import { validateBrowserSearch } from '@/lib/search-params.ts';
 
 export const Route = createFileRoute('/battle/')({
   validateSearch: validateBrowserSearch,
   component: BattlePage,
 });
 
-/**
- * Duas causas levam ao mesmo estado (cadastro e volta do roster), então a frase
- * fala de onde o monstro ESTÁ, nunca de como chegou lá. Recebe `arrivedIds`
- * filtrado, nunca o `left`/`right` cru.
- */
 function prefilledMessage(left: Monster | null, right: Monster | null): string {
   if (left && right) {
     return `${left.name} e ${right.name} já estão escalados para este duelo.`;
@@ -33,6 +29,12 @@ function prefilledMessage(left: Monster | null, right: Monster | null): string {
   return `${only?.name} já está escalado para este duelo.`;
 }
 
+function fresh(roster: RosterCollection, id: string): Monster | null {
+  const row = roster.get(id);
+
+  return row ? toMonster(row) : null;
+}
+
 function BattlePage() {
   const { roster } = Route.useRouteContext();
   const browser = useMonsterBrowser(roster);
@@ -40,35 +42,24 @@ function BattlePage() {
 
   const setupActor = BattleSetupActor.useActorRef();
   const { left, right, activeSlot } = BattleSetupActor.useSelector((snapshot) => snapshot.context);
-  // A máquina garante que os dois slots estão cheios, não que os monstros ainda
-  // existem no roster: `effectiveCanFight` é a conjunção, nunca um substituto.
   const canFight = BattleSetupActor.useSelector((snapshot) => snapshot.matches('ready'));
 
-  // A máquina guarda uma CÓPIA do `Monster` do clique: ele pode ter sido
-  // excluído (nesta aba, em outra, ou por resincronização) sem ela saber.
-  const validLeft = left && roster.has(left.id) ? left : null;
-  const validRight = right && roster.has(right.id) ? right : null;
+  const validLeft = left ? fresh(roster, left.id) : null;
+  const validRight = right ? fresh(roster, right.id) : null;
   const effectiveCanFight = canFight && Boolean(validLeft) && Boolean(validRight);
   const isEmpty = !validLeft && !validRight;
   const isPartial = Boolean(validLeft) !== Boolean(validRight);
 
   function clearSlot(slot: Side) {
     const monster = slot === 'left' ? left : right;
-    // Não há evento "limpar só este slot": reenviar o mesmo monstro cai no ramo
-    // "já escalado" de `togglePick`. Lê o `left`/`right` CRU, que é o que a
-    // máquina tem guardado e o que precisa bater por `id`.
     if (monster) setupActor.send({ type: 'fighter.picked', monster });
   }
 
-  // Evacua da MÁQUINA o slot cujo monstro sumiu do roster; `validLeft`/
-  // `validRight` só consertam a renderização. SEM array de dependências de
-  // propósito: `roster.has` é leitura síncrona de um objeto externo ao React.
   useEffect(() => {
     if (left && !roster.has(left.id)) clearSlot('left');
     if (right && !roster.has(right.id)) clearSlot('right');
   });
 
-  // Capturado uma vez, na MONTAGEM: quem já vinha escalado antes de qualquer clique nesta tela.
   const [arrivedIds, setArrivedIds] = useState<ReadonlySet<string>>(() => {
     const arrival = setupActor.getSnapshot().context;
     return new Set(
@@ -76,9 +67,6 @@ function BattlePage() {
     );
   });
 
-  // Um id só continua em `arrivedIds` enquanto nunca SAIU de um slot: sem a poda,
-  // reescolher à mão o mesmo monstro que acabou de sair voltava a ser anunciado
-  // como "já escalado". Compara por id para sobreviver a "Inverter lutadores".
   useEffect(() => {
     const stillOccupying = new Set(
       [left?.id, right?.id].filter((id): id is string => id !== undefined),
@@ -86,7 +74,6 @@ function BattlePage() {
 
     setArrivedIds((current) => {
       const pruned = new Set([...current].filter((id) => stillOccupying.has(id)));
-      // Mesma referência quando nada mudou: um swap muda `left`/`right` sem podar nada.
       return pruned.size === current.size ? current : pruned;
     });
   }, [left, right]);
@@ -135,8 +122,6 @@ function BattlePage() {
               variant="secondary"
               size="sm"
               onClick={() => {
-                // Limpa só quem CHEGOU escalado; `selection.cleared` levaria junto
-                // a escolha que o usuário fez à mão nesta tela.
                 if (arrivedLeft) clearSlot('left');
                 if (arrivedRight) clearSlot('right');
               }}
@@ -150,17 +135,13 @@ function BattlePage() {
       <VersusBar
         left={validLeft}
         right={validRight}
-        // `activeSlot` da máquina nunca é `null`; a VersusBar usa `null` para "ninguém esperando clique".
         activeSlot={effectiveCanFight ? null : activeSlot}
         canFight={effectiveCanFight}
         onClear={clearSlot}
         onSwap={() => setupActor.send({ type: 'sides.swapped' })}
         onFight={() => {
-          // Estreitamento para o TypeScript; `effectiveCanFight` já garante isto no `disabled`.
           if (!validLeft || !validRight) return;
 
-          // Só os ids vão para a URL: é o que faz o duelo sobreviver a um F5 e
-          // ser compartilhável por link.
           void navigate({
             to: '/battle/$leftId/$rightId',
             params: { leftId: validLeft.id, rightId: validRight.id },

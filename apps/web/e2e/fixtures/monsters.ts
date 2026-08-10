@@ -1,6 +1,5 @@
 import type { Monster } from '@arena/domain/monster';
 
-/** Arte inline: um `<img src="https://…">` seria uma requisição cross-origin, e o `arena.ts` reprova o teste. */
 function art(fill: string): string {
   return `data:image/svg+xml,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">` +
@@ -11,19 +10,9 @@ function art(fill: string): string {
   )}`;
 }
 
-/**
- * Todos os números passam pelo `monsterSchema`, incluindo o orçamento de 250 —
- * um só que violasse faria o seeding lançar e a tela abrir vazia.
- *
- * São OITO porque `PAGE_SIZE` é 6: a paginação só existe acima de seis.
- *
- * ARMADILHA DE DURAÇÃO: o playback custa `1200 + turnos × 1700` ms em 1x, e
- * Ferrolix × Golemis se batem no piso de dano 1 por **360 turnos** (2min33s
- * mesmo em 4x). Quem escrever um cenário novo precisa conferir o par antes.
- */
 export const ROSTER: readonly Monster[] = [
   {
-    id: 'e2e-aurox',
+    id: '2251ab8c-3f5f-4ce2-ab74-b71c1a375d02',
     name: 'Aurox',
     attack: 100,
     defense: 55,
@@ -32,7 +21,7 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#e2572a'),
   },
   {
-    id: 'e2e-brontor',
+    id: '03fbdc9c-5fab-4dd8-9f61-93b21009a242',
     name: 'Brontor',
     attack: 50,
     defense: 60,
@@ -41,7 +30,7 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#4c5a6b'),
   },
   {
-    id: 'e2e-cindral',
+    id: '8e7e511d-d97c-4534-aebe-f81ab8b4b16a',
     name: 'Cindral',
     attack: 70,
     defense: 40,
@@ -50,7 +39,7 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#b8443f'),
   },
   {
-    id: 'e2e-dracarn',
+    id: '865151f6-329e-4dad-a463-958f6ced79c5',
     name: 'Dracarn',
     attack: 80,
     defense: 45,
@@ -59,7 +48,7 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#3f7d4f'),
   },
   {
-    id: 'e2e-ferrolix',
+    id: 'c57c31f7-731c-4a31-abf5-91a44fcd202c',
     name: 'Ferrolix',
     attack: 45,
     defense: 90,
@@ -68,7 +57,7 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#7a6a4f'),
   },
   {
-    id: 'e2e-golemis',
+    id: '7c53bdb8-b8d5-4ed7-8742-49f868d05418',
     name: 'Golemis',
     attack: 40,
     defense: 100,
@@ -77,7 +66,7 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#5b6470'),
   },
   {
-    id: 'e2e-hydrivo',
+    id: '172af089-d920-4d3c-af18-2ead0dc06478',
     name: 'Hydrivo',
     attack: 65,
     defense: 50,
@@ -86,13 +75,31 @@ export const ROSTER: readonly Monster[] = [
     imageUrl: art('#1f7f86'),
   },
   {
-    id: 'e2e-ignivor',
+    id: 'a6f5471a-b731-4bcf-9dc7-47d3dbbfb7a8',
     name: 'Ignivor',
     attack: 90,
     defense: 35,
     speed: 85,
     hp: 120,
     imageUrl: art('#8a4fb0'),
+  },
+  {
+    id: '6d7bf641-b8dc-4ee7-a2e2-f63d3e9bd983',
+    name: 'Jelmoro',
+    attack: 60,
+    defense: 70,
+    speed: 50,
+    hp: 160,
+    imageUrl: art('#2f6f4f'),
+  },
+  {
+    id: 'ecf8a599-0ef9-455e-8fe5-6c81d894b4bd',
+    name: 'Kraveln',
+    attack: 85,
+    defense: 40,
+    speed: 78,
+    hp: 120,
+    imageUrl: art('#a8552f'),
   },
 ];
 
@@ -103,65 +110,44 @@ const byName = (name: string): Monster => {
   return found;
 };
 
-/** Os dois lutadores do cenário principal. */
 export const AUROX = byName('Aurox');
 export const BRONTOR = byName('Brontor');
 
-/**
- * O resultado de `Aurox × Brontor`, conferido com `simulateBattle`. O par
- * exercita AS DUAS regras de dano no mesmo duelo e ainda cabe no
- * timeout: 7 turnos são 13,1s em 1x e 3,275s em 4x.
- */
-export const DUELO = {
-  vencedor: 'Aurox',
-  perdedor: 'Brontor',
-  golpes: 7,
+export const DUEL = {
+  winner: 'Aurox',
+  loser: 'Brontor',
+  hits: 7,
   rounds: 4,
-  danoDoAurox: 150,
-  danoDoBrontor: 3,
-  hpFinalDoAurox: 102,
-  hpFinalDoBrontor: 0,
+  auroxDamage: 150,
+  brontorDamage: 3,
+  auroxFinalHp: 102,
+  brontorFinalHp: 0,
 } as const;
 
-/**
- * O MESMO par com os lados trocados, e não por simetria: sem um duelo em que
- * `first` e `winner` caem na DIREITA, um `VictoryPanel` que sempre coroasse o
- * Lutador 1 deixaria a suíte inteira verde.
- */
-export const DUELO_ESPELHADO = {
-  vencedor: 'Aurox',
-  perdedor: 'Brontor',
-  golpes: 7,
+export const MIRRORED_DUEL = {
+  winner: 'Aurox',
+  loser: 'Brontor',
+  hits: 7,
   rounds: 4,
-  danoDoBrontor: 3,
-  danoDoAurox: 150,
-  hpFinalDoBrontor: 0,
-  hpFinalDoAurox: 102,
+  brontorDamage: 3,
+  auroxDamage: 150,
+  brontorFinalHp: 0,
+  auroxFinalHp: 102,
 } as const;
 
-/**
- * O monstro que o cenário de cadastro DIGITA no formulário. Não entra no
- * `ROSTER` de propósito: ele tem que nascer do formulário. Orçamento
- * 90 + 60 + 65 + ⌊105/3⌋ = 250, exatamente no teto.
- */
 export const SOMBRASTRO = {
-  nome: 'Sombrastro',
-  ataque: '90',
-  defesa: '60',
-  velocidade: '65',
+  name: 'Sombrastro',
+  attack: '90',
+  defense: '60',
+  speed: '65',
   hp: '105',
-  imagem: art('#2b1d4a'),
+  image: art('#2b1d4a'),
 } as const;
 
-/**
- * `Sombrastro × Brontor`, conferido com `simulateBattle`. QUEM é o Lutador 1 é
- * determinístico: o cadastro chega por um documento NOVO, a `battleSetupMachine`
- * nasce com `activeSlot: 'left'` e o `nanoid` sorteia o id, nunca o lado.
- */
-export const DUELO_DO_CADASTRO = {
-  vencedor: SOMBRASTRO.nome,
-  golpes: 9,
+export const REGISTRATION_DUEL = {
+  winner: SOMBRASTRO.name,
+  hits: 9,
   rounds: 5,
-  danoDoSombrastro: 150,
-  danoDoBrontor: 4,
+  sombrastroDamage: 150,
+  brontorDamage: 4,
 } as const;

@@ -8,8 +8,6 @@ export type ThemeMode = 'light' | 'dark';
 export const settingsStore = createStore({
   context: { speed: 1 as PlaybackSpeed, theme: 'dark' as ThemeMode },
   on: {
-    // @xstate/store não faz merge parcial: o retorno SUBSTITUI o contexto inteiro,
-    // então todo handler precisa espalhar `...context`.
     speedSet: (context, event: { speed: PlaybackSpeed }) => ({ ...context, speed: event.speed }),
     themeToggled: (context) => ({
       ...context,

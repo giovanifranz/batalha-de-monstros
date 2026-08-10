@@ -34,16 +34,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 const navLink =
   'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground';
 
-/**
- * O casco: header, tema e `<main>`. Separado do `RootLayout` porque o
- * `errorComponent` da raiz SUBSTITUI o componente da raiz — sem ele, qualquer
- * rota que lance derruba a navegação junto e não sobra caminho de volta.
- */
 function AppShell({ children }: { children: ReactNode }) {
-  // `useSelector` do @xstate/react também lê um store do @xstate/store.
   const theme = useSelector(settingsStore, (snapshot) => snapshot.context.theme);
 
-  // O tema é uma classe no <html>, fora da árvore React — precisa de efeito.
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
@@ -51,8 +44,6 @@ function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh">
       <header className="bg-card border-b">
-        {/* `flex-wrap` medido: a 320px o wordmark mais os links somavam 413px de
-            `scrollWidth` e a página inteira rolava na horizontal. */}
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 py-3">
           <Link to="/" className="mr-auto flex items-center gap-2">
             <Swords className="text-primary size-5" aria-hidden />
@@ -90,7 +81,6 @@ function AppShell({ children }: { children: ReactNode }) {
 function RootLayout() {
   return (
     <AppShell>
-      {/* O `BattleSetupActor` fica acima das rotas porque a seleção sobrevive à navegação. */}
       <NuqsAdapter>
         <BattleSetupActor.Provider>
           <Outlet />
@@ -100,10 +90,6 @@ function RootLayout() {
   );
 }
 
-/**
- * `reset` refaz a renderização da rota sem recarregar, o que resolve a causa
- * transitória e não a que está na URL — daí o link para o roster ao lado.
- */
 function RootErrorScreen({ error, reset }: ErrorComponentProps) {
   return (
     <AppShell>

@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
@@ -102,7 +103,7 @@ jobs:
           retention-days: 7
 
   visual:
-    name: regressão visual (90 stories)
+    name: regressão visual (95 stories)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -129,7 +130,13 @@ jobs:
         if: ${{ steps.baseline.outputs.cache-matched-key == '' }}
         run: echo "::warning::sem baseline no cache — esta execução apenas grava a primeira, nada foi comparado"
 
-      - run: vp run vrt
+      - name: Comparar com a baseline
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
+        run: vp run vrt
+
+      - name: Aprovar a baseline
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
+        run: vp run 'vrt:approve'
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -137,9 +144,10 @@ jobs:
           name: visual-report
           path: packages/ui/.vrt/report
           retention-days: 7
+          if-no-files-found: ignore
 
       - name: Guardar a baseline
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        if: ${{ (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
         uses: actions/cache/save@v4
         with:
           path: packages/ui/.vrt/baseline

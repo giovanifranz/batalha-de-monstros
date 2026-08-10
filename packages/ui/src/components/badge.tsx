@@ -9,13 +9,10 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        // Desbotar o rosa aproximava o fundo do rótulo branco (3.51 no claro).
         default:
           'bg-primary text-primary-foreground [a]:hover:bg-[color-mix(in_oklch,var(--primary),black_10%)]',
-        // Mesma medição do `default` acima: `/80` dava 3.38 no claro.
         secondary:
           'bg-secondary text-secondary-foreground [a]:hover:bg-[color-mix(in_oklch,var(--secondary),black_10%)]',
-        // O tint sai de `--destructive`; só o texto usa `--destructive-ink`.
         destructive:
           'bg-destructive/10 text-destructive-ink focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20',
         outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',

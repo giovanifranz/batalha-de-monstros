@@ -9,8 +9,6 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: 'bg-card text-card-foreground',
-        // `text-destructive-ink` e não `text-destructive`: sobre `bg-card` o token de
-        // preenchimento mede 3.77 claro / 2.81 escuro.
         destructive:
           'bg-card text-destructive-ink *:data-[slot=alert-description]:text-destructive-ink/90 *:[svg]:text-current',
       },
@@ -62,10 +60,6 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
   );
 }
 
-/**
- * NO FLUXO do grid, nunca `absolute`: flutuando sobre um padding fixo, um rótulo
- * de botão mais longo que a reserva cobre o próprio título do alerta.
- */
 function AlertAction({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div

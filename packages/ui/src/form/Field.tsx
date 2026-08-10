@@ -10,11 +10,9 @@ type ControlProps = {
 
 type Props = {
   label: string;
-  /** Primeira mensagem de erro, já resolvida por quem chama. */
   error?: string;
   hint?: string;
   className?: string;
-  /** Render prop: recebe os atributos de acessibilidade já ligados aos ids certos. */
   children: (control: ControlProps) => ReactNode;
 };
 
@@ -30,8 +28,6 @@ export function Field({ label, error, hint, className, children }: Props) {
       {children({
         id,
         'aria-invalid': error ? true : undefined,
-        // Espelha a condição que renderiza o <p> do hint: senão o `aria-describedby`
-        // aponta para um id que não existe no DOM.
         'aria-describedby': cn(error && errorId, hint && !error && hintId) || undefined,
       })}
 

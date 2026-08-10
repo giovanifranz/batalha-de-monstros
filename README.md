@@ -1,312 +1,106 @@
 # Batalha de Monstros
 
-Cadastre monstros, escolha dois, assista à batalha e veja o resultado. Roda
-inteiro no navegador: **não há backend, não há API, não há variável de
-ambiente**. O roster mora no `localStorage` e a batalha é uma função pura.
+Cadastre monstros, escolha dois, assista à batalha. Roda inteiro no navegador:
+**sem backend, sem API, sem variável de ambiente**. O roster mora na memória da
+aba e a batalha é uma função pura.
 
-O jogo tem três movimentos — cadastrar um monstro, montar uma batalha entre
-dois, ver o resultado aparecer sozinho ao fim — e um algoritmo de cinco regras
-por baixo. Este README diz onde cada uma delas está no código e como cada uma é
-provada.
-
-## O que está publicado onde
-
-Antes de clicar em qualquer link: **os dois destinos publicam coisas
-diferentes.**
-
-| Destino          | O que é                                                                                                                                             |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub Pages** | O **Storybook** — a biblioteca de componentes, estado por estado. **Não é o app.** Não dá para cadastrar um monstro nem assistir a uma batalha ali. |
-| **Container**    | O **app rodando** — é onde o jogo acontece de verdade. Publicado à parte, por imagem Docker; veja [Deploy](#deploy).                                |
-| **Local**        | O caminho garantido para ver o jogo inteiro: os três comandos de [Como rodar](#como-rodar), sem `.env` e sem backend.                               |
-
-O CI publica o Storybook automaticamente; o app sai como imagem de container, e
-a seção de deploy explica como.
-
----
+| No ar                                                                       | O que é                                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [app](https://batalhademonstros-app-648jii-3fde04-129-148-25-175.sslip.io/) | O jogo. É aqui que se cadastra monstro e se assiste à batalha. |
+| [design system](https://giovanifranz.github.io/batalha-de-monstros/)        | O Storybook, componente por componente. **Não é o app.**       |
 
 ## Como rodar
 
 ```bash
 curl -fsSL https://vite.plus | bash   # instala o Vite+ (o CLI `vp`)
-vp install                            # instala as dependências do workspace
-vp dev                                # sobe o app em http://localhost:5173
+vp install                            # dependências do workspace
+vp dev                                # app em http://localhost:5173
 ```
 
-Só isso. Sem `.env`, sem banco, sem serviço para subir junto.
+Quatro coisas que valem saber antes:
 
-Estes três comandos foram verificados num clone limpo, nesta ordem, com o Vite+
-instalado do zero. O que a verificação mostrou e vale saber antes:
-
-- **O instalador do Vite+ pergunta** se ele pode gerenciar as versões do Node.
-  Aceite (é o padrão): é assim que você recebe o Node 26 que o `engines.node`
-  exige, sem `nvm`. Em ambiente não-interativo (CI, devcontainer) ele decide
-  sozinho e não pergunta nada. Para responder antes,
-  `VP_NODE_MANAGER=yes curl -fsSL https://vite.plus | bash`.
-- **O instalador edita seus arquivos de shell** (`~/.zshenv`, `~/.zshrc`, os
-  equivalentes de bash/fish/nushell), acrescentando uma linha que carrega
-  `$HOME/.vite-plus/env`. Ele avisa no fim, mas depois do fato. Para instalar
-  fora do caminho padrão, `VP_HOME=/onde/você/quiser`.
-- **`vp dev` é o terceiro comando por um motivo.** Ele — e também o build — gera
-  `apps/web/src/routeTree.gen.ts`, que é um artefato do TanStack
-  Router e por isso está no `.gitignore`. Num clone recém-feito o arquivo não
-  existe, e rodar `vp check` **antes** de `vp dev` falha com 9 erros de tipo que
-  descendem todos dessa ausência. Não é um defeito de código; é a ordem. Depois
-  da primeira geração, `vp check` fica verde e continua verde.
+- **`vp dev` é o terceiro comando por um motivo.** Ele (e o build) gera
+  `apps/web/src/routeTree.gen.ts`, artefato do TanStack Router que está no
+  `.gitignore`. Rodar `vp check` antes falha com 9 erros de tipo que descendem
+  todos dessa ausência. Depois da primeira geração fica verde.
 - **Não use `npm` nem `npx`.** O repositório declara
   `devEngines.packageManager: pnpm` e o npm aborta com `EBADDEVENGINES`.
-- Se você já tem Node 26 e prefere o `nvm`, `nvm use` lê o `.nvmrc`. O `vp`
-  continua sendo obrigatório — ele é o task runner, o linter, o formatador, o
-  type-checker e o runner de testes.
+- **O instalador do Vite+ edita seus arquivos de shell** e pergunta se pode
+  gerenciar as versões do Node — aceite, é assim que você recebe o Node 26 que o
+  `engines.node` exige. Para instalar fora do padrão, `VP_HOME=/onde/quiser`.
+- Na primeira execução o roster é semeado com doze monstros, oito por página.
+  São dados normais: podem ser editados, excluídos e restaurados.
 
-Na primeira execução o roster é semeado com quatro monstros (Ignaruk, Petragon,
-Umbrafel, Zefirion) para que a tela inicial não seja um estado vazio. Eles são
-dados normais: podem ser excluídos, e o estado vazio traz um botão para
-restaurá-los.
+## Ferramentas
 
----
+| Camada           | Escolha                                                               |
+| ---------------- | --------------------------------------------------------------------- |
+| Toolchain        | **Vite+** (`vp`) — task runner, oxfmt, oxlint, tsgolint e Vitest      |
+| Gerenciador      | pnpm 11 via `devEngines`, com catálogo único em `pnpm-workspace.yaml` |
+| App              | React 19 + TypeScript 7, React Compiler ligado                        |
+| Rotas            | TanStack Router (file-based, `autoCodeSplitting`)                     |
+| Estado do roster | TanStack DB — `localOnlyCollectionOptions`, em memória                |
+| Estado de fluxo  | XState 5 (batalha e seleção) + `@xstate/store` (tema e velocidade)    |
+| Estado na URL    | nuqs, com `validateSearch` do router                                  |
+| Formulário       | TanStack Form + zod 4 como Standard Schema                            |
+| Estilo           | Tailwind 4 (CSS-first) + shadcn/ui sobre `radix-ui`                   |
+| Testes           | Vitest, Playwright, Storybook 10, Stryker, reg-suit                   |
+| Análise estática | SonarCloud                                                            |
+| Deploy           | Imagem Docker com nginx não-privilegiado                              |
+
+**React Compiler ligado significa zero `useMemo`, `useCallback` ou `memo`.** Onde
+a identidade importa, a solução é estrutural — a prop `key`.
 
 ## Comandos
 
-Cada linha diz o que o comando **realmente** cobre, porque a divisão entre eles
-não é óbvia e já custou caro uma vez (veja a seção seguinte).
+| Comando                                   | O que roda                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| `vp dev`                                  | O app, via `defaultPackage` do `vite.config.ts` da raiz                  |
+| `vp check`                                | Portão único: oxfmt + oxlint + type-check numa passada                   |
+| `vp check --fix`                          | O mesmo, corrigindo o que é mecânico                                     |
+| `vp test`                                 | 187 unitários — domain (46), infra (40), web (101). **Sem** as stories   |
+| `vp run test:stories`                     | 95 stories num Chromium real, com o addon de a11y em `test: 'error'`     |
+| `vp run ready`                            | `check` + `test` + `test:stories` + `build`. O comando antes de abrir PR |
+| `vp -C apps/web run test:e2e`             | 33 cenários Playwright (BDD, sem rede)                                   |
+| `vp -C packages/domain run test:mutation` | Stryker no motor de batalha e no schema (`break: 100`)                   |
+| `vp -C packages/infra run test:mutation`  | Stryker na persistência (`break: 100`)                                   |
+| `vp run vrt`                              | Regressão visual: 95 PNGs contra a baseline                              |
+| `vp run vrt:approve`                      | Grava a captura atual **como** baseline                                  |
+| `vp -C packages/ui run storybook`         | Storybook em http://localhost:6006                                       |
+| `vp -C apps/web build`                    | Build de produção → `apps/web/dist`                                      |
 
-| Comando                                   | O que roda                                                                                                             |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `vp dev`                                  | O app (`apps/web`), via `defaultPackage` do `vite.config.ts` da raiz.                                                  |
-| `vp check`                                | O portão único: oxfmt + oxlint + type-check numa passada só.                                                           |
-| `vp check --fix`                          | O mesmo, corrigindo formatação e ordem de chaves de `package.json`.                                                    |
-| `vp test`                                 | 94 testes unitários — `packages/domain` (42), `packages/infra` (22), `apps/web` (30). **Não** roda a suíte de stories. |
-| `vp run test:stories`                     | 90 testes de story do `packages/ui` num Chromium real, com o addon de a11y em `test: 'error'`.                         |
-| `vp run ready`                            | `vp check` + `vp test` + `vp run test:stories` + `vp run -r build`, nessa ordem.                                       |
-| `vp -C apps/web run test:e2e`             | 33 cenários Playwright (BDD, sem rede).                                                                                |
-| `vp -C apps/web run test:e2e:ui`          | Os mesmos, no modo UI, para depurar passo a passo.                                                                     |
-| `vp -C packages/domain run test:mutation` | Stryker sobre o motor de batalha e o schema (`break: 100`).                                                            |
-| `vp -C packages/infra run test:mutation`  | Stryker sobre a camada de persistência (`break: 100`).                                                                 |
-| `vp -C packages/ui run storybook`         | Storybook do design system em http://localhost:6006.                                                                   |
-| `vp run vrt`                              | Regressão visual: 90 PNGs do Storybook comparados pixel a pixel com a baseline.                                        |
-| `vp run vrt:approve`                      | Grava a captura atual **como** baseline. É o passo depois de uma mudança visual intencional.                           |
-| `vp run build-storybook`                  | Build estático do Storybook → `packages/ui/storybook-static`. É o que o CI publica.                                    |
-| `vp -C apps/web build`                    | Build de produção do app → `apps/web/dist`.                                                                            |
-| `vp run -r build`                         | O mesmo, pelo task runner, respeitando o grafo de dependências. É a última etapa do `ready`.                           |
-| `vp -C apps/web preview`                  | Serve o `dist` com fallback de SPA, para conferir o build.                                                             |
+Duas formas que **não** funcionam:
 
-Duas formas que **não** funcionam, para não serem redescobertas:
+- `vp run -C apps/web test:e2e` → `-C` é opção global e vem antes do subcomando.
+- `vp run web#build` → o build do app é `vp -C apps/web build` ou `vp run -r build`.
 
-- `vp run -C apps/web test:e2e` → `Task "-C" not found`. O `-C <dir>` é opção
-  **global** e vem antes do subcomando: `vp -C apps/web run test:e2e`.
-- `vp run web#build` e `vp run -t web#build` → `Task "web#build" not found`. O
-  build do app é `vp -C apps/web build` (o subcomando embutido) ou
-  `vp run -r build` (a tarefa).
+`vp test` na raiz varre o workspace como **um** projeto Vitest e não enxerga o
+`vitest.config.ts` do `packages/ui`, que é quem declara o projeto de browser. Ler
+"os testes passam" só do `vp test` já deixou 13 falhas de contraste passarem.
 
-### Por que `vp test` não roda tudo
+### Hooks de git
 
-`vp test` na raiz varre o workspace como **um** projeto Vitest ancorado na raiz.
-Ele não enxerga o `vitest.config.ts` do `packages/ui`, que é justamente quem
-declara o projeto de browser. Rodar só `vp test` e ler "os testes passam" já
-deixou 13 falhas de contraste passarem despercebidas por um bom tempo.
+Versionados em `.vite-hooks/`, instalados pelo `vp config` que o `prepare` dispara
+em todo `vp install`.
 
-A suíte de stories ficou fora do `vp test` **de propósito**: ela precisa de um
-Chromium do Playwright instalado, e um `vp test` que não passa num clone novo é
-um `vp test` que as pessoas param de rodar. Por isso ela tem nome próprio
-(`test:stories`) e entra no `ready` — o único comando que promete "está tudo
-pronto". Antes de abrir PR, o comando é `vp run ready`.
+| Hook         | Roda                  |
+| ------------ | --------------------- |
+| `pre-commit` | `vp staged`           |
+| `pre-push`   | `vp check && vp test` |
 
-`ready` começa pelo `vp check`, então ele herda a ordem descrita em
-[Como rodar](#como-rodar): num clone que nunca rodou `vp dev` nem
-`vp -C apps/web build`, o `routeTree.gen.ts` ainda não existe e o `check` falha
-antes de chegar aos testes. É a razão de o workflow de CI gerar a árvore de
-rotas antes de chamar o `ready`.
+O `check` do `pre-push` type-checa o `routeTree.gen.ts`, que é gitignored: num
+clone que nunca rodou `vp dev` o push falha em erros que não são do seu commit.
+Para pular, `VP_GIT_HOOKS=0 git commit`.
 
-Fora do `ready` ficam as duas suítes que exigem browser ou levam mais tempo: o
-Playwright e os dois Strykers. Elas rodam no CI (veja
-[Integração contínua](#integração-contínua)).
-
----
-
-## O jogo, item a item
-
-| Funcionalidade ou regra                                                      | Onde está                                                                                                              |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Cadastrar monstro com `name`, `attack`, `defense`, `speed`, `hp`, `imageUrl` | Rota `/monsters/new` (`apps/web/src/routes/monsters.new.tsx` + `components/MonsterForm.tsx`)                           |
-| Criar uma batalha entre dois monstros                                        | Rota `/battle` (`apps/web/src/routes/battle.index.tsx`), dois slots                                                    |
-| Ver o resultado automaticamente ao fim da batalha                            | `VictoryPanel` em `apps/web/src/components/VictoryPanel.tsx`, aberto pela máquina ao chegar em `finished` — sem clique |
-| Maior velocidade ataca primeiro                                              | `resolveFirstAttacker`, `packages/domain/src/battle.ts`                                                                |
-| Empate de velocidade resolve pelo maior ataque                               | `resolveFirstAttacker`, mesmo arquivo                                                                                  |
-| `damage = attack - defense`, mínimo 1                                        | `calculateDamage`, mesmo arquivo                                                                                       |
-| `hp = hp - damage`                                                           | `simulateBattle`, mesmo arquivo                                                                                        |
-| Todos os rounds calculados de uma vez                                        | `simulateBattle` roda inteiro **antes** do primeiro frame; a UI só reproduz o log                                      |
-| Vence quem zerou o HP do inimigo primeiro                                    | `simulateBattle` — o vencedor é o atacante do último turno                                                             |
-| React + TypeScript                                                           | React 19 + TypeScript 7                                                                                                |
-| Sem backend                                                                  | Zero `fetch`, zero `XMLHttpRequest`, zero WebSocket no código da aplicação                                             |
-
----
-
-## O algoritmo de batalha
-
-As cinco regras vivem num arquivo só, `packages/domain/src/battle.ts`, em
-funções puras que não conhecem React, storage nem rota.
-
-```ts
-// dano = ataque - defesa; se ataque <= defesa, dano = 1
-return attack > defense ? attack - defense : MIN_DAMAGE;
-```
-
-A condição é `attack > defense`, e não `raw > MIN_DAMAGE`: são perguntas
-diferentes que hoje coincidem só porque o piso vale 1. Escrever a regra
-literalmente mantém o código correto se o piso mudar.
-
-**Todos os rounds de uma vez.** `simulateBattle(left, right)` devolve o
-`BattleResult` completo — todos os turnos, o HP antes e depois de cada golpe, o
-vencedor — antes de qualquer coisa aparecer na tela. A animação é um
-`battle.machine.ts` (XState) reproduzindo um log já fechado; pular a animação
-não muda o resultado porque não há nada a recalcular.
-
-**Duas decisões que as cinco regras não cobrem**, tomadas para o resultado ser
-determinístico:
-
-- Empate de velocidade **e** de ataque → começa o Lutador 1 (lado esquerdo).
-- O dano é limitado a zerar o HP (`Math.max(0, ...)`), mas o `damage` do turno
-  guarda o valor bruto: num golpe de overkill os dois divergem de propósito, e o
-  total de dano conta o HP realmente removido.
-
-### Como as regras são provadas
-
-`vp -C packages/domain run test:mutation`
-
-| Medida                          | Valor                                               |
-| ------------------------------- | --------------------------------------------------- |
-| Testes unitários de `battle.ts` | 24 (mais 15 do schema e 3 dos erros = 42 no pacote) |
-| Mutantes gerados em `battle.ts` | 79                                                  |
-| Sobreviventes                   | 0                                                   |
-| Score de mutação do pacote      | **100,00%** (`break: 100` no `stryker.config.mjs`)  |
-
-Cobertura de linha diz que a linha rodou. Score de mutação diz que **algum teste
-reclamaria se a regra mudasse** — o Stryker troca `>` por `<`, `-` por `+`,
-apaga o piso de dano, e cada uma dessas versões erradas precisa fazer um teste
-falhar. As poucas exceções legítimas (um mutante equivalente em
-`resolveFirstAttacker`, o guard de `MAX_TURNS` que nenhum monstro válido
-alcança) estão marcadas com `// Stryker disable` **e o motivo escrito ao lado**,
-o que tira o mutante do denominador em vez de escondê-lo no numerador.
-
-`packages/infra` roda sob a mesma regra e também está em 100,00% (40 mutantes).
-
----
-
-## A regra de balanceamento
-
-O cadastro impõe, além dos seis campos:
-
-- `attack` 1–100, `defense` 0–100, `speed` 0–100, `hp` 100–300;
-- **`attack + defense + speed + ⌊hp/3⌋ ≤ 250`.**
-
-É a decisão de design que faz o cadastro ser uma escolha e não um formulário.
-Sem o teto nada impede cadastrar um monstro no máximo de tudo, todo mundo
-cadastra esse, e a batalha entre dois monstros perfeitos é sempre a mesma. Com
-ele, ataque comprado é defesa não comprada, e o `hp` entra dividido por três
-porque um ponto de vida vale menos que um ponto de ataque. As duas constantes
-são exportadas de
-`packages/domain/src/monster.ts` (`STAT_LIMITS`, `ATTRIBUTE_BUDGET`) e usadas
-direto pelo formulário — os `min`/`max` dos inputs, o medidor de pontos e o
-botão "Sortear atributos" leem os mesmos números, em vez de repeti-los.
-
-Quem preferir jogar sem orçamento de pontos: apague o `.refine(...)` de
-`monsterFormSchema` e alargue `STAT_LIMITS`. Os testes do schema falham (é o
-objetivo deles), o motor de batalha não muda.
-
----
-
-## Onde o dado mora
-
-Tudo no `localStorage` do navegador, em duas chaves:
-
-| Chave            | Conteúdo                                                   | Mecanismo                                         |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------- |
-| `arena:roster`   | A coleção de monstros                                      | `localStorageCollectionOptions` do `@tanstack/db` |
-| `arena:settings` | Duas preferências escalares: tema e velocidade de playback | `persist` do `@xstate/store`                      |
-
-A coleção e as duas preferências escalares vivem no **mesmo mecanismo de
-armazenamento, em chaves separadas** — é divisão por natureza do dado (uma
-coleção consultada reativamente contra dois escalares lidos na inicialização),
-não deriva.
-
-- **Limpar os dados do site apaga o roster.** Não há backup e não há exportação.
-- **Nada sai do navegador.** Não há requisição de rede no código da aplicação. A
-  única exceção é o `image_url` que _você_ digita: o navegador vai buscar aquela
-  imagem, como faria com qualquer `<img>`.
-- **Sincroniza entre abas.** Duas abas abertas: cadastre numa e ela aparece na
-  outra sem recarregar. É o evento `storage` nativo, de graça.
-
-### O teto de ~5 MB
-
-`localStorage` é síncrono e limitado a cerca de 5 MB por origem. Um roster
-digitado à mão não chega perto — a semente inteira, com arte, ocupa poucos KB.
-Mas `image_url` é texto livre, e **um `data:` URI colado pode ocupar centenas de
-KB sozinho**. Colar alguns estoura a cota.
-
-Não há limite de tamanho no schema, e isso é uma decisão consciente: recusar uma
-URL legítima comprida seria pior que o problema. O que existe é tratamento: uma
-escrita que estoura a cota falha com mensagem na tela, não com tela branca
-(`apps/web/src/lib/storage-error.ts`, 5 testes), e o roster continua íntegro —
-a coleção resincroniza com o storage real antes de relançar, para que a próxima
-escrita bem-sucedida não arraste o resíduo da que falhou.
-
-Se isso incomodar, a correção é uma linha em `monsterFormSchema`: um
-`.max(N)` no `imageUrl`.
-
----
-
-## Trocando o armazenamento
-
-Trocar o armazenamento sem tocar em mais nada não é aqui uma promessa ilustrada
-por um bloco de código de exemplo: **as duas implementações existem e as duas
-rodam em todo `vp test`.**
-
-O seam é um **parâmetro**, não uma classe:
-
-```ts
-// packages/infra/src/roster/collection.ts
-export function createRosterCollection({
-  storage = window.localStorage,
-  storageEventApi = window,
-}: RosterCollectionOptions = {}) { … }
-```
-
-- O navegador não passa nada e recebe o `localStorage` e o `window` reais
-  (`apps/web/src/db/roster.ts`).
-- Os testes passam um fake em memória (`packages/infra/src/roster/collection.test.ts`,
-  22 testes) — é por isso que a camada de persistência roda em ambiente Node,
-  sem jsdom e sem browser.
-
-Trocar para `sessionStorage`, para um storage criptografado ou para um mock de
-teste é passar outro objeto com a forma da `Storage` API. Nenhum outro arquivo
-muda, e a checagem é literal:
-
-```console
-$ grep -rn "window.localStorage" packages/ --include='*.ts' --include='*.tsx'
-packages/infra/src/roster/collection.ts:47:  storage = window.localStorage,
-```
-
-Uma linha, que é o default do parâmetro acima. (Um `grep` por `localStorage`
-solto devolve quatro linhas do mesmo arquivo, mas três delas são o nome
-`localStorageCollectionOptions` — o import, um comentário e a chamada. O
-acoplamento real ao objeto do navegador é a linha 47 e só ela.)
-
-O teste de sincronização entre abas usa isso de forma mais interessante ainda:
-dois fakes compartilhando o mesmo `storageEventApi`, escrita num, leitura no
-outro — a funcionalidade de duas abas provada sem abrir duas abas.
-
----
-
-## Estrutura do monorepo
+## Estrutura
 
 ```
 apps/
-  web/            React + TanStack Router. Rotas, formulário, playback, E2E.
+  web/       React + TanStack Router. Rotas, formulário, playback, E2E.
 packages/
-  domain/         Motor de batalha e schema do monstro. Sem React, sem I/O.
-  infra/          Persistência: a coleção do roster e suas quatro operações.
-  ui/             Design system. Não conhece rota, rede, storage nem form lib.
+  domain/    Motor de batalha e schema do monstro. Sem React, sem I/O.
+  infra/     Persistência: a coleção do roster e suas operações.
+  ui/        Design system. Não conhece rota, rede, storage nem form lib.
 ```
 
 ```
@@ -314,512 +108,105 @@ web ──► ui ──► domain
  └────► infra ──► domain
 ```
 
-`packages/ui` recebe dado por prop e devolve evento por callback. O teste real
-disso é que toda story renderiza sem provider nenhum.
+**Sem barrel files.** O contrato público de cada pacote é o campo `exports` do
+`package.json`, e o import diz de onde a coisa vem (`@arena/domain/battle`). Toda
+importação relativa carrega a extensão explícita (`./monster.ts`), porque a
+resolução é `nodenext`.
 
-**Não há barrel files.** Nenhum `index.ts` reexportando o pacote: o contrato
-público de cada um é o campo `exports` do `package.json`, e o import diz de
-onde a coisa vem (`@arena/domain/battle`, `@arena/ui/battle/FighterCard`). Toda
-importação relativa carrega a extensão explícita do arquivo (`./monster.ts`),
-porque a resolução é `nodenext`.
+`packages/ui` recebe dado por prop e devolve evento por callback — o teste disso é
+que toda story renderiza sem provider nenhum.
 
-Toda dependência entra como `catalog:`, com a versão declarada uma única vez em
-`pnpm-workspace.yaml`.
+## Onde o dado mora
 
----
+| Onde             | Conteúdo                        | Mecanismo                    |
+| ---------------- | ------------------------------- | ---------------------------- |
+| memória da aba   | A coleção de monstros           | `localOnlyCollectionOptions` |
+| `arena:settings` | Tema e velocidade de reprodução | `persist` do `@xstate/store` |
 
-## Decisões e trade-offs
+**O roster é da sessão.** Recarregar recomeça pelos doze exemplos: o que você
+cadastrou, editou ou excluiu não sobrevive a um F5. É deliberado — a coleção não
+tem storage por baixo, e é isso que tira qualquer teto de tamanho do cadastro. O
+tema e a velocidade sobrevivem, porque essas duas ficam no `localStorage`.
 
-- **Vite+ em vez de Turborepo + ESLint + Prettier + tsc.** Um CLI cobre task
-  runner, lint, format, type-check e testes. `vp check` é uma passada só, e não
-  há quatro configurações para manter em acordo. Custo: `vp` é global e precisa
-  ser instalado; e é isso que complica o deploy (veja [Deploy](#deploy)).
-- **O motor indexa por lado (`left`/`right`), não por id.** A batalha não precisa
-  saber quem são os monstros para reproduzir o log; `BattleResult` carrega
-  `startHp` e é autossuficiente.
-- **TanStack DB com `localStorageCollectionOptions`** — seção própria acima.
-- **A criação da coleção é síncrona.** `localStorage` é síncrono, então não há
-  banco assíncrono para esperar: nada de top-level await, nada de shell de
-  carregamento, nada de primeira frame em branco. O único `await` da aplicação é
-  um `preload()` no `main.tsx`, e ele existe para a primeira frame já sair com o
-  roster no grid.
-- **XState para fluxo, `@xstate/store` para dado.** A máquina de batalha e a de
-  seleção têm estados; tema e velocidade são dois escalares e não merecem uma
-  máquina. Cuidado registrado: o `@xstate/store` v4 **substitui o contexto
-  inteiro** no retorno do handler — todo handler espalha `...context`.
-- **`@xstate/graph`, não `@xstate/test`; `produce` do immer, não
-  `@xstate/immer`.** Os dois últimos declaram peer `xstate: ^4`, são v4-only.
-- **nuqs _e_ `validateSearch`.** Uma definição de parsers, dois consumidores
-  (`apps/web/src/search-params.ts`). Sem o segundo, o router descarta os params
-  que o nuqs acabou de escrever e a URL "esquece" a busca. O `validateSearch` é
-  deliberadamente tolerante: `?page=abc` devolve a página 1, não uma tela de erro.
-- **React Compiler ligado: zero `useMemo`, `useCallback` ou `memo`.** Ele é uma
-  otimização, não uma garantia de identidade — onde a identidade importa, a
-  solução é estrutural: a prop `key` que reinicia a arena
-  (`key={JSON.stringify([left.id, right.id, runId])}`).
-- **A fonte pixel (`Press Start 2P`) é escopada à arena e ao wordmark.** Ela
-  carrega a identidade retrô sem sequestrar a legibilidade do formulário.
-- **Nenhuma pixelização em CSS.** `image-rendering: pixelated` fazia sentido com
-  sprites 64×64; com `image_url` arbitrário ele destruiria a imagem do usuário.
-- **Mutação roda em `domain` e `infra`, não em `ui` nem em `apps/web`.** Mutante
-  em componente React é equivalente demais e lento demais; o que ele mediria já
-  é medido pelas stories e pelo E2E.
+Voltar a persistir é trocar `localOnlyCollectionOptions` por outra fábrica de
+opções do `@tanstack/db` dentro de `createRosterCollection`. Nenhum consumidor
+muda, e a checagem é literal — nenhum arquivo fora dele importa `@tanstack/db`:
 
----
-
-## Estratégia de testes
-
-Cinco camadas, cada uma respondendo a uma pergunta diferente. Nenhuma substitui
-a outra.
-
-| Camada           | Ferramenta             | Pergunta que responde                        | Onde                     | Quantos |
-| ---------------- | ---------------------- | -------------------------------------------- | ------------------------ | ------- |
-| Unitário (AAA)   | Vitest                 | A regra está implementada certo?             | `domain`, `infra`, `web` | 94      |
-| Mutação          | Stryker                | O teste **reclamaria** se a regra mudasse?   | `domain`, `infra`        | 100,00% |
-| Componente       | Storybook + addon a11y | Renderiza e é acessível em todos os estados? | `ui`                     | 90      |
-| Regressão visual | Playwright + reg-suit  | Algum pixel mudou sem ninguém pedir?         | `ui`                     | 90 PNGs |
-| E2E (BDD)        | Playwright             | O usuário consegue completar o fluxo?        | `apps/web`               | 33      |
-
-```bash
-vp test                                     # 94 unitários
-vp run test:stories                         # 90 stories, Chromium real
-vp run vrt                                  # 90 PNGs contra a baseline
-vp -C apps/web run test:e2e                 # 33 cenários
-vp -C packages/domain run test:mutation     # 100,00%
-vp -C packages/infra  run test:mutation     # 100,00%
+```console
+$ grep -rln "@tanstack/db" packages/ --include='*.ts'
+packages/infra/src/roster/collection.ts
 ```
 
-Todo teste unitário é AAA — `// Arrange`, `// Act`, `// Assert`, com **um único
-Act** — e o nome descreve o comportamento em português
-(`'usa dano mínimo quando o ataque é igual à defesa'`). Todo cenário E2E é uma
-sequência de `test.step('Dado …' / 'Quando …' / 'Então …')`, o que faz o trace
-do Playwright virar a narrativa do teste.
+## Testes
 
-Detalhes que valem a pena saber:
+Cinco camadas, cada uma respondendo a uma pergunta diferente.
 
-- **O E2E não faz uma única requisição de rede.** A semente entra por
-  `page.addInitScript` gravando `arena:roster` antes de qualquer script da
-  página, e a arte é `data:image/svg+xml`. Mas **o cenário de cadastro dirige a
-  UI de verdade** com um helper `registrarMonstro(page, dados)` — cadastrar é
-  justamente o que aquele teste existe para provar, e fingi-lo seria trapaça.
-- **20 dos 33 cenários são gerados por modelo.** `getShortestPaths` do
-  `@xstate/graph` percorre a `battleSetupMachine` e produz um caminho por estado
-  alcançável; mais dois testes falham se algum estado ou algum evento do modelo
-  ficar sem asserção na suíte. Caminho que ninguém pensou em escrever ainda é
-  testado. Os outros 11 são escritos à mão (cadastro, roster, batalha).
-- **A acessibilidade é medida em dois lugares.** O addon do Storybook roda o axe
-  depois de cada `play`, em `test: 'error'`; e em desenvolvimento o `vp dev` roda
-  o axe **contra o app de verdade** e escreve as violações no console
-  (`apps/web/src/lib/dev-axe.ts`), cobrindo o que nenhuma story renderiza —
-  rotas inteiras, o formulário com vários campos em erro, o diálogo por cima do
-  grid.
-- **Contraste no `:hover` é medido explicitamente**, porque o axe nunca passa o
-  mouse: `packages/ui/src/testing/contrast.ts` resolve o estado no CSSOM e lê o
-  número de um pixel composto num `<canvas>`. Foi assim que um botão em 3,74:1
-  apareceu enquanto a suíte inteira reportava verde. Veja as
-  [limitações conhecidas](#limitações-conhecidas) — a cobertura desse guarda tem
-  fronteira, e ela está escrita.
+| Camada           | Ferramenta             | Pergunta                              | Onde            |
+| ---------------- | ---------------------- | ------------------------------------- | --------------- |
+| Unitário         | Vitest (node)          | A regra está certa?                   | os três pacotes |
+| Mutação          | Stryker (`break: 100`) | O teste morre se a regra mudar?       | domain, infra   |
+| Story            | Storybook + a11y       | O componente renderiza e é acessível? | ui              |
+| Regressão visual | Playwright + reg-suit  | Mudou pixel que ninguém pediu?        | ui              |
+| E2E              | Playwright (BDD)       | O fluxo funciona no navegador?        | web             |
 
-### Regressão visual
+Detalhes que valem a pena:
 
-A quarta camada existe para uma pergunta que nenhuma das outras faz: _mudou
-algum pixel que ninguém pediu para mudar?_ O axe diz que o contraste passa, a
-story diz que o componente renderiza, e os dois continuam verdes com um
-`padding` errado.
-
-```bash
-vp run vrt          # captura e compara; um pixel diferente reprova
-vp run vrt:approve  # promove a captura atual a baseline
-```
-
-O `vrt` constrói o Storybook, serve o build num servidor estático efêmero,
-percorre o índice de stories num Chromium do Playwright gravando um PNG por
-story (90 hoje), e o **reg-suit** compara imagem a imagem contra a baseline,
-escrevendo `packages/ui/.vrt/report/index.html` — uma página com esperado,
-obtido e diferença lado a lado. `vrt:approve` é o passo depois de conferir que a
-mudança visual era a pretendida.
-
-**Um único pixel visivelmente diferente reprova** — `thresholdRate` e
-`thresholdPixel` são zero, então não existe "mudou pouco, deixa passar" por
-área. O que existe é um piso de cor: `matchingThreshold: 0.05` no
-`regconfig.json`, metade do padrão da própria biblioteca de comparação.
-
-Ele existe porque duas capturas seguidas da mesma página **não** saem byte a
-byte iguais. A carta derrotada — a única com `filter: grayscale` sobre um
-elemento transformado — sai com até 7/255 de diferença por canal dentro da
-própria moldura, sempre, invisível a olho nu. Sem esse piso o portão reprovava
-essa imagem sem nada ter mudado, e um portão que mente é um portão que se
-desliga. Com ele, dez execuções seguidas sem alterar nada dão dez verdes.
-
-O preço está medido, não estimado. Deslocar a luminância do `--primary` em
-**+3,4%** não é notado; em **+8,4%** treze stories reprovam. Mudanças de
-geometria não têm essa folga: `px-2` → `px-2.5` num badge, dois pixels de cada
-lado, reprova as cinco stories que desenham um badge.
-
-O que reduz esse ruído até o ponto de caber sob o piso vem de cinco lugares:
-
-- **Não há rede.** A arte dos monstros é `data:image/svg+xml` inline e as fontes
-  entram no bundle do Storybook. Nada chega tarde, nada chega diferente.
-- **A animação é congelada no frame que interessa.** `animations: 'disabled'`
-  do `page.screenshot` leva toda animação **finita** ao último frame e cancela a
-  **infinita** no primeiro. A carta derrotada aparece caída — é para isso que o
-  `defeat-drop` existe, com `forwards` — e o balanço ocioso da arena aparece
-  parado, sempre no mesmo ponto. Apagar as animações por CSS, o outro caminho
-  possível, fotografaria a carta derrotada ainda em pé: esconderia justamente o
-  estado que a story existe para mostrar.
-- **O cursor de texto não entra na foto.** `caret: 'hide'`. Sem isso, a story
-  que digita num campo sai com o cursor piscando em metade das capturas — a
-  diferença aparecia e sumia sozinha.
-- **A foto só é tirada depois do `play`.** A captura espera o evento
-  `storyFinished` do próprio Storybook, que é emitido **depois** da função
-  `play`, e então espera `document.fonts.ready`. Fotografar antes pegaria a
-  story a meio caminho da interação que ela encena, ou o texto medido com a
-  fonte errada.
-- **Rasterização travada.** `--force-color-profile=srgb` (senão a mesma cor sai
-  com bytes diferentes em monitores diferentes), `--disable-lcd-text`
-  (antialiasing em escala de cinza, que não depende da ordem RGB do painel),
-  `--font-render-hinting=none` e `deviceScaleFactor: 1` (numa tela HiDPI a mesma
-  página sairia com o dobro de pixels).
-
-**A baseline não é versionada.** Não é uma questão de peso: são 90 PNGs, 888 KB
-no total. É que os mesmos 90 PNGs, capturados do **mesmo** build do Storybook
-com o **mesmo** binário do Chromium, saem diferentes em sistemas operacionais
-diferentes: **70 dos 90** mudam entre macOS e Linux, e 3 dos 90 mudam entre
-Linux arm64 e Linux x86-64 — já descontado o piso de cor acima. A rasterização
-de fonte é do sistema, não do navegador. Uma baseline versionada valeria só na
-máquina que a gerou, e o CI reprovaria dezenas de imagens para sempre. Então
-cada ambiente guarda a sua: localmente em `packages/ui/.vrt/baseline` (ignorado
-pelo git), e no CI no cache do GitHub Actions, com sistema e arquitetura na
-chave e gravado só pela branch padrão. Nenhum bucket, nenhuma conta de nuvem.
-
-Duas fronteiras, para não serem descobertas do jeito difícil:
-
-- **Um tema por story.** O preview roda em escuro; as stories que precisam do
-  claro declaram `globals: { theme: 'light' }`. A captura respeita esse
-  `globals`, mas não fotografa a mesma story nos dois temas.
-- **Story nova não reprova.** Ela entra no relatório como "nova" e passa a valer
-  como baseline no `vrt:approve` seguinte — não há contra o que compará-la.
-
-### O que não é testado, e por quê
-
-- **Mutação em componente React**: mutante equivalente demais, lento demais.
-- **E2E contra rede real**: não existe rede real. O E2E existe para o fluxo.
-- **Migração de dado já gravado**: o carregamento inicial da coleção só confere
-  que o JSON é serializável, nunca roda o `monsterSchema`. Um monstro salvo sob
-  uma regra antiga volta como está. Está anotado em `collection.ts` e listado
-  nas limitações abaixo.
-
----
+- **Mutação só em `domain` e `infra`.** Mutante em componente React é equivalente
+  demais e lento demais; o que ele mediria já é medido pelas stories e pelo E2E.
+- **18 dos 33 cenários E2E são gerados por modelo.** O `getShortestPaths` do
+  `@xstate/graph` caminha a máquina de seleção, e duas guardas garantem que todo
+  evento tem executor e todo estado alcançável tem asserção.
+- **Contraste no `:hover` é medido**, porque o axe nunca passa o mouse:
+  `packages/ui/src/testing/contrast.ts` resolve o estado no CSSOM e lê o número de
+  um pixel composto num `<canvas>`. O que fica de fora é o anel de foco contra a
+  cor adjacente, que é o critério 1.4.11.
+- **A persistência roda em node**, sem jsdom e sem browser: a coleção é em
+  memória, então o teste não precisa de fake nenhum.
 
 ## Integração contínua
 
-`.github/workflows/ci.yml`. Quatro jobs de teste em paralelo, um de análise que
-espera o primeiro e um de publicação que só roda depois dos quatro:
+Cinco jobs em container, todos em `.github/workflows/ci.yml`:
 
-| Job         | O que roda                                                        | Quando                                |
-| ----------- | ----------------------------------------------------------------- | ------------------------------------- |
-| `ready`     | `vp run ready` (check + 94 unitários + 90 stories + build)        | todo push/PR                          |
-| `e2e`       | os 33 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
-| `mutation`  | os dois Strykers, com os relatórios como artefato                 | todo push/PR                          |
-| `visual`    | `vp run vrt` — 90 PNGs contra a baseline, relatório como artefato | todo push/PR                          |
-| `sonarqube` | análise estática na SonarCloud, sobre o lcov que o `ready` gerou  | depois do `ready`                     |
-| `publish`   | build do Storybook + upload para o GitHub Pages                   | só `main`, e só se os quatro passarem |
+| Job                | O que roda                                         |
+| ------------------ | -------------------------------------------------- |
+| `ready`            | `vp run ready` + a cobertura como artefato         |
+| `playwright`       | os 33 cenários, com o relatório HTML como artefato |
+| `stryker`          | os dois pacotes com `break: 100`                   |
+| `regressão visual` | os 95 PNGs contra a baseline do cache              |
+| `sonarqube cloud`  | análise estática e cobertura, com quality gate     |
 
-O `publish` declara `needs: [ready, e2e, mutation, visual]` e uma condição de
-branch. Deploy verde a partir de build vermelho é pior que deploy nenhum, e um
-PR não publica. O `sonarqube` ainda **não** entra nesse `needs` — o porquê está
-em [SonarQube Cloud](#sonarqube-cloud).
+O `publish` manda o Storybook para o GitHub Pages, e só a partir da branch padrão.
 
-Cinco coisas que o workflow resolve e que um clone novo não resolve sozinho:
+### Aprovando uma mudança visual num PR
 
-- **Ter o `vp` e o Node certos.** Todo job roda **dentro** da imagem oficial
-  `ghcr.io/voidzero-dev/vite-plus`, que já traz o CLI e provisiona o Node lendo o
-  `engines.node` da raiz. Por isso não há `setup-node` no workflow: seria uma
-  segunda fonte de verdade para a versão do Node, e a que perde. A imagem roda
-  como o usuário não-root `vp` e o runner cria o diretório de trabalho como root,
-  daí o `options: --user root` em cada `container:`.
+A baseline vive no cache do Actions, é por sistema **e por arquitetura**, e só a
+branch padrão a gravava — então uma mudança visual intencional reprovava para
+sempre, e aprovar localmente não serve porque a sua captura não é Linux X64.
 
-  A tag é **fixa** (`:0.2.8`), e não `latest`: o pacote `vite-plus` que o
-  `vp install` põe no workspace é o companion local desse mesmo CLI, e os dois
-  precisam bater. Com `latest`, o par se desfaria sozinho no dia em que saísse
-  uma versão nova, sem ninguém mudar uma linha do repositório — uma build que
-  quebra por conta própria, num dia qualquer. **Ao subir a tag, suba junto o
-  `vite-plus` do catálogo em `pnpm-workspace.yaml`**; são três lugares (a tag no
-  `ci.yml`, a do `Dockerfile` e o catálogo) e o repositório não tem como
-  confrontá-los sozinho.
+1. Abra o artefato `visual-report` da execução que reprovou e confira cada
+   diferença.
+2. Ponha a label **`vrt-approved`** no PR. Isso redispara o CI, porque `labeled`
+   está nos `types` do trigger.
+3. O job grava a baseline em vez de comparar. Como o `restore-keys` casa por
+   prefixo e devolve a entrada mais recente, ela passa a valer para a branch
+   padrão e o merge entra verde.
 
-- **Instalar o Chromium do Playwright**, com
-  `vp -C <pacote> exec playwright install --with-deps chromium`. Sem esse passo
-  a suíte de stories e o E2E falham num ambiente limpo, e essa era exatamente a
-  lacuna: as três suítes mais caras rodavam só quando alguém digitava o comando.
-- **Gerar a árvore de rotas antes do `ready`**, pelo motivo descrito em
-  [Como rodar](#como-rodar). Descoberto justamente clonando o repositório num
-  diretório vazio: sem esse passo o job morreria na primeira execução.
-- **Guardar a baseline visual entre execuções.** Ela não é versionada (o porquê
-  está em [Regressão visual](#regressão-visual)), então quem a carrega de uma
-  execução para a outra é o cache do GitHub Actions: `restore-keys` casa por
-  prefixo e devolve a entrada mais recente, e só a branch padrão grava — assim
-  todo PR compara com o último estado aprovado de `main`, e não consigo mesmo.
-  Na primeiríssima execução não existe baseline; o job emite um `::warning::`
-  dizendo que passou sem comparar nada, porque um verde silencioso ali seria
-  indistinguível de um verde de verdade.
-- **Não rodar tudo duas vezes.** `on: push` está restrito a `main`; as demais
-  branches entram pelo `pull_request`. Com `push: ['**']` **e** `pull_request`,
-  um PR aberto de uma branch do próprio repositório dispara os dois eventos com
-  refs diferentes, o que dá dois grupos de `concurrency` e o dobro de jobs por
-  push, nenhum cancelando o outro.
-
-**Este workflow rodou uma vez, e morreu antes de testar coisa alguma.** Os
-quatro jobs pararam no mesmo passo, o que instalava o `vp` por `curl | bash`:
-`vp --version | head -n1` fechava o cano na primeira das 17 linhas de saída, o
-binário (que é Rust, e Rust ignora SIGPIPE em vez de morrer quieto) entrava em
-pânico com `Broken pipe (os error 32)` e saía com 134 — que o `pipefail` do
-shell promovia a código do passo. Esse passo não existe mais: quem entrega o
-`vp` agora é a imagem.
-
-O que continua **não verificado** é a montagem do runner com `container:` — o
-`--user root`, o `--with-deps` e as actions do Pages rodando dentro da imagem.
-Os comandos em si são os mesmos verificados à mão neste ambiente.
-
-### SonarQube Cloud
-
-O job `sonarqube` roda o scanner da SonarCloud sobre o monorepo inteiro. A
-configuração fica em `sonar-project.properties`, na raiz — um arquivo por
-pacote faria quatro projetos separados lá, e este monorepo é um só.
-
-**Um passo é manual, uma vez por repositório**: em _Settings › Secrets and
-variables › Actions_, criar o secret **`SONAR_TOKEN`** com o token gerado em _My
-Account › Security_ na SonarCloud. Sem ele o scanner morre em
-`You're not authorized to analyze this project` — que é autenticação faltando,
-não erro do `sonar-project.properties`.
-
-Quatro decisões que não são o padrão da tela de onboarding:
-
-- **É o único job sem `container:`.** Ele não roda `vp`: o scanner baixa o Sonar
-  Scanner CLI, confere a assinatura GPG e usa o JRE embutido nele. A cobertura
-  chega pronta, pelo artefato que o `ready` sobe — daí o `needs: [ready]`. Pôr a
-  imagem do Vite+ aqui só acrescentaria dependências que a análise não usa.
-- **`fetch-depth: 0` no checkout.** O scanner usa o histórico do git para
-  atribuir cada linha a um commit e a uma data, e é daí que sai a fronteira
-  entre "código novo" e "código legado". Num clone raso todo arquivo parece ter
-  nascido no último commit, e o portão de código novo passa a julgar o projeto
-  inteiro a cada push.
-- **Fonte e teste separados por padrão, não por diretório.** Os testes moram ao
-  lado do código (`monster.ts` e `monster.test.ts` na mesma pasta), então
-  `sonar.sources` e `sonar.tests` apontam os dois para a raiz e quem separa é
-  `sonar.test.inclusions`. Sem essa separação o scanner morre em
-  `File can't be indexed twice`; e com tudo classificado como fonte o relatório
-  encheria de falso positivo, porque regra de fonte cobra complexidade e
-  duplicação onde regra de teste cobraria asserção faltando e `.only` esquecido.
-- **`sonar.qualitygate.wait=true`, mas `sonarqube` fora do `needs` do
-  `publish`.** Sem o `wait` a ação apenas ENVIA a análise e sai em verde
-  independentemente do veredito — o job existiria sem nunca poder reprovar nada.
-  Já o `needs` fica para depois da primeira análise de `main`: enquanto a
-  SonarCloud não tem linha de base, o portão trata o repositório inteiro como
-  código novo, e bloquear o deploy nisso seria bloquear por falta de histórico,
-  não por regressão.
-
-A ação está fixada por **SHA** (`7006c449…`, que é a `v8.1.0`), e não por tag:
-tag em repositório de terceiro é ponteiro móvel, e é este passo que recebe o
-`SONAR_TOKEN`.
-
-A cobertura enviada é o `coverage/lcov.info` do `vp test --coverage` — os mesmos
-unitários que o `vp run ready` acabou de rodar, executados de novo dentro do
-`ready` só para escrever o relatório (menos de um segundo; o `vp test` da raiz
-não sobe browser).
-
-Ela **não** cobre `.tsx` nem `packages/ui`, e isso está declarado em
-`sonar.coverage.exclusions` em vez de ficar implícito: componente React é
-verificado pelas 90 stories e pelos 33 cenários Playwright, e nenhuma das duas
-suítes emite lcov. Sem a exclusão o Sonar contaria esses arquivos como 0% e a
-métrica passaria a medir a fronteira da suíte unitária, não a qualidade do
-código. É a mesma linha de
-[Como as regras são provadas](#como-as-regras-são-provadas): cobertura de linha
-diz que a linha rodou — o número que vale aqui continua sendo o score de
-mutação.
-
----
+Quem põe a label auto-aprova. E aprovar depois **abandonando** o PR deixa uma
+baseline não mesclada como a mais recente, o que reprova a branch padrão até
+alguém regravar.
 
 ## Deploy
 
-Dois destinos, conteúdos diferentes — veja
-[O que está publicado onde](#o-que-está-publicado-onde) antes de clicar em
-qualquer link.
-
-### GitHub Pages — o Storybook
-
-Automático, pelo job `publish` do CI: build do Storybook e upload pelas actions
-oficiais do Pages (`configure-pages`, `upload-pages-artifact`, `deploy-pages`),
-com `pages: write` / `id-token: write` e um `environment: github-pages`. Nada de
-empurrar uma branch `gh-pages` à mão.
-
-Um repositório tem **um** site do Pages, e ele é do Storybook. O app não entra
-nesse artefato: ele sai como imagem de container, abaixo.
-
-**Um passo é manual, uma vez por repositório**: em _Settings › Pages › Build and
-deployment_, deixar **Source = "GitHub Actions"**. Enquanto isso não estiver
-feito, o job `publish` morre logo no `configure-pages` com:
-
-```
-Error: Get Pages site failed. Please verify that the repository has Pages
-enabled and configured to build using GitHub Actions
-```
-
-Não é erro de build nem de permissão — é a API do Pages devolvendo 404 para um
-site que nunca foi criado. A action tem um `enablement: true` que criaria o site
-sozinha, mas ele exige `administration: write`, permissão que o `GITHUB_TOKEN`
-não pode receber; seria preciso guardar um PAT em secret só para um clique que
-se dá uma vez. Pela linha de comando o mesmo clique é:
-
-```bash
-gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow
-```
-
-**O prefixo do site (`base`) é a única coisa que pode dar errado aqui**, e ela
-falha em silêncio: um `base` errado publica uma página que abre com todo asset
-em 404. Por isso ele não é digitado em lugar nenhum — sai do output `base_path`
-do `actions/configure-pages`, que a própria API do Pages calcula:
-
-| Tipo de site                         | `base_path` | `base` do Storybook |
-| ------------------------------------ | ----------- | ------------------- |
-| Project page (`user.github.io/repo`) | `/repo`     | `/repo/`            |
-| User/org page ou domínio próprio     | `` (vazio)  | `/`                 |
-
-Localmente o default é `/`, que é o que o `storybook dev` e o build local
-servem. Para reproduzir o caso de project page na máquina:
-
-```bash
-STORYBOOK_BASE_PATH=/meu-repo vp run build-storybook
-```
-
-Duas armadilhas já pagas, para não custarem de novo:
-
-- **`base` no `vite.config.ts` do `packages/ui` não teria efeito.** O builder do
-  Storybook fixa `base: './'` na config comum dele e a mescla por cima da do
-  usuário. O único ponto que fala por último é o `viteFinal` do
-  `.storybook/main.ts` — é lá que o `base` é resolvido.
-- **O build do Storybook é uma TAREFA do `vite.config.ts` da raiz, não um script
-  do `package.json`.** Tarefa é o único caminho que aceita `env`, e sem `env` a
-  variável **não chega**: tarefa do Vite Task roda em ambiente limpo (só `PATH`,
-  `HOME`, `CI` e afins). Medido: pelo script,
-  `STORYBOOK_BASE_PATH=/repo vp run build-storybook` produzia um build com base
-  `/`, sem uma palavra de aviso. Declarar no `env` também põe a variável na
-  impressão digital do cache, então um artefato construído com outro base não é
-  restaurado por engano.
-
-O job ainda confere o resultado antes de publicar: se o `iframe.html` não
-referenciar `<base>/assets/`, ele falha em vez de publicar uma página quebrada.
-
-**Verificado**, não assumido. O build saído de um clone limpo com
-`STORYBOOK_BASE_PATH=/meu-repo` foi servido sob esse prefixo por um servidor que
-reproduz as regras do Pages (arquivo real primeiro, diretório → `index.html`):
-`/meu-repo/`, `/meu-repo/iframe.html` e `/meu-repo/index.json` respondem 200, e
-`/` e `/assets/` respondem 404 — ou seja, nada escapou do prefixo. Um **deep
-link para uma story específica**
-(`/meu-repo/?path=/story/monster-monstercard--arte-quebrada`) foi aberto num
-navegador de verdade: a story certa selecionada e renderizada, o iframe de
-preview em `/meu-repo/iframe.html?id=…`, e **nenhum dos 37 recursos carregados
-(9 do manager + 28 do preview) com status ≥ 400 nem fora do prefixo**.
-
-O roteamento do Storybook é por query param, não por caminho, então não há rota
-a reescrever e **nenhum `404.html` é necessário** — o que também significa que
-nada aqui depende do truque de fallback que um SPA precisaria no Pages.
-
-### Docker — o app
-
-O `Dockerfile` na raiz, em dois estágios:
+O app sai como imagem de container servindo os estáticos por nginx:
 
 ```bash
 docker build -t arena-web .
 docker run --rm -p 8080:8080 arena-web
 ```
 
-O estágio de build é a imagem oficial `ghcr.io/voidzero-dev/vite-plus`, que já
-traz o `vp` e provisiona o Node pelo `engines.node`. **É o que faz a versão do
-Node ser decidida dentro do container**, e não pela imagem de build de uma
-plataforma — e é a razão de o container ser o caminho de deploy daqui: a
-`engines.node` deste repositório é `>= 26`, e plataformas de build costumam
-oferecer 20/22/24, resolvendo isso **antes** de qualquer comando de instalação
-rodar, quando o `vp` que traria o Node certo ainda nem existe. O estágio final é
-um `nginx:1-alpine` com os estáticos e nada mais — sem Node, sem `vp`, sem
-`node_modules`.
+O runtime é `nginxinc/nginx-unprivileged` e roda como uid 101 — nada ali precisa
+de root: a porta é 8080, o payload é só-leitura e o log vai para stdout. A porta
+vem de `PORT`, para as plataformas que a injetam no ambiente.
 
-O `docker/nginx.conf.template` existe por uma razão só, e ela não é opcional: o
-roteamento do app é client-side. Sem `try_files $uri $uri/ /index.html`, `/`
-responde 200 e `/battle` e `/monsters/new` respondem **404** — servir o `dist`
-com um estático qualquer não basta. `/assets/` sai com `immutable` (os nomes têm
-hash) e o `index.html` com `no-store` (é ele que aponta para o hash da vez). A
-porta vem de `PORT` (padrão 8080), para as plataformas que a injetam no
-ambiente.
-
-Verificado com a imagem construída localmente: `/`, `/battle` e `/monsters/new`
-respondem 200; `/assets/nao-existe.js` responde 404 em vez de cair no fallback;
-o app renderiza sem erro de console.
-
----
-
-## Limitações conhecidas
-
-Nenhuma destas é surpresa; todas estão anotadas no código também.
-
-- **O guarda de contraste cobre `:hover` e só `:hover`.** O `textContrast()` de
-  `packages/ui/src/testing/contrast.ts` aceita literalmente `pseudo?: ':hover'`.
-  A varredura completa das variantes de estado do pacote, com a contagem de
-  ocorrências, é a base do que vem a seguir:
-  - **`:active` — 1 variante**, `active:not-aria-[haspopup]:translate-y-px`. É
-    uma **transformação**. Nenhuma variante `active:` muda cor. Não há o que
-    medir.
-  - **`:focus-visible` — 9 variantes**: `ring-ring/50` (×4), `border-ring` (×4),
-    `ring-destructive/40` (×2), `ring-destructive/20` (×2), `ring-[3px]` (×2),
-    `ring-3` (×2), `border-destructive/40`, `z-10`. **Zero `bg-*` e zero
-    `text-*`** — o contraste do **texto** não muda no foco. O que fica sem
-    medição é o contraste do **anel de foco** contra a cor adjacente
-    (WCAG 1.4.11, 3:1), que é outro critério e que este helper, por medir texto
-    contra fundo, não consegue expressar sem virar outra ferramenta.
-  - **`:disabled` — 5 variantes**: `opacity-50` (×4), `pointer-events-none`
-    (×3), `cursor-not-allowed` (×2), `bg-input/50` e `dark:disabled:bg-input/80`
-    (as duas em `input.tsx`), mais `group-data-[disabled=true]:opacity-50` e
-    `:pointer-events-none` em `label.tsx`. Três delas mudam de fato o que é
-    pintado — a opacidade e os dois fundos —, mas a **WCAG 1.4.3 isenta
-    explicitamente componentes inativos** de requisito de contraste, então não
-    há critério a medir.
-
-  Conclusão: a lacuna real é o anel de foco, e ela é uma medição diferente
-  (não-texto, contra a cor adjacente), não um parâmetro a mais no helper
-  existente. Não foi fechada.
-
-- **Dado gravado por uma versão anterior não é validado na leitura.** O
-  carregamento inicial da coleção confere só que o JSON é serializável. Uma
-  linha em formato antigo volta com campos `undefined` enquanto o TypeScript
-  continua achando que é um `Monster` completo. Anotado em `collection.ts`.
-- **Uma escrita que falha faz a coleção resincronizar inteira.** O
-  `cleanup() + preload()` reemite um evento de mudança para cada linha, não só
-  para a que falhou. O estado final está correto; o que quebra é código que
-  dependa da identidade do evento. Anotado em `collection.ts`.
-- **~5 MB de `localStorage`**, e `image_url` é texto livre. Veja
-  [O teto de ~5 MB](#o-teto-de-5-mb).
-- **A imagem publica estáticos, e só.** Não há preview por PR, CDN, domínio nem
-  TLS configurados aqui: o `Dockerfile` entrega um nginx servindo o `dist` numa
-  porta, e o resto é de quem hospeda. Veja [Docker — o app](#docker--o-app).
-- **O workflow de CI em container nunca rodou.** A execução anterior morreu no
-  passo que instalava o `vp`, antes de qualquer teste; a montagem atual só é
-  exercitada no primeiro push. Veja
-  [Integração contínua](#integração-contínua).
-- **A regressão visual tem um piso de cor de ~5% de luminância**, e cada
-  ambiente carrega a própria baseline. Os dois números e o porquê estão em
-  [Regressão visual](#regressão-visual).
-- **`vp run <tarefa>` roda em ambiente limpo.** Uma variável de ambiente que a
-  tarefa precise tem de estar declarada no `env` dela, ou ela não chega — em
-  silêncio, sem erro. Só o build do Storybook depende disso hoje, e ele já
-  declara; a armadilha fica registrada porque a próxima tarefa que precisar de
-  uma variável vai encontrá-la.
-
----
-
-## Documentos do projeto
-
-- `docs/plans/2026-08-08-batalha-de-monstros.md` — o documento de design: o
-  modelo de domínio, o algoritmo de batalha, as fronteiras de pacote, a
-  persistência, a acessibilidade e a estratégia de testes, com o porquê de cada
-  escolha.
-- `AGENTS.md` — como o Vite+ é usado neste repositório.
+O fallback de SPA é `try_files $uri $uri/ /index.html`, com `/assets/` marcado
+`immutable` (os nomes têm hash) e o `index.html` com `no-store`.

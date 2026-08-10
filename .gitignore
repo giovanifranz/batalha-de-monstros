@@ -32,8 +32,12 @@ dist-ssr
 # AI agent worktrees
 .claude/worktrees/
 
+# dispatcher gerado pelo `vp config`; os hooks do projeto são versionados
+.vite-hooks/_
+
 # gerado pelo TanStack Router
 apps/web/src/routeTree.gen.ts
+apps/web/.tanstack/
 
 # scratch directory (superpowers process)
 .superpowers/

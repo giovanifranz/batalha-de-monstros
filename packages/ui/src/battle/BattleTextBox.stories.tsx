@@ -35,8 +35,6 @@ const defeatTurn: BattleTurn = {
   isChip: false,
 };
 
-// `isChip` e `defenderHpAfter === 0` não se excluem: este é o frame em que os
-// dois ramos de `buildMessage` se sobrepõem.
 const chipDefeatTurn: BattleTurn = {
   ...damageTurn,
   index: 3,
@@ -59,7 +57,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// As seis stories abaixo cobrem cada ramo de `buildMessage`.
 export const Intro: Story = { args: { status: 'intro' } };
 export const Anuncio: Story = { args: { beat: 'announce', turn: damageTurn } };
 export const Dano: Story = { args: { beat: 'impact', turn: damageTurn } };
@@ -67,8 +64,6 @@ export const DanoMinimo: Story = { args: { beat: 'impact', turn: chipTurn } };
 export const Derrota: Story = { args: { beat: 'impact', turn: defeatTurn } };
 export const Vitoria: Story = { args: { status: 'finished', winnerName: pyrelisk.name } };
 
-// No frame em que os dois coincidem, a derrota precisa vencer: uma reordenação
-// dos ifs em `buildMessage` quebra esta story.
 export const DerrotaComDanoMinimo: Story = {
   args: { beat: 'impact', turn: chipDefeatTurn },
   play: async ({ canvas }) => {

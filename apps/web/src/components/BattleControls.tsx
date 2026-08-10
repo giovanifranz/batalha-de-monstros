@@ -5,12 +5,10 @@ import { FastForward } from 'lucide-react';
 import { PLAYBACK_SPEEDS, settingsStore } from '@/stores/settings.store.ts';
 
 type Props = {
-  /** Vem de `snapshot.can({ type: 'battle.skip' })`, não de um `status`. */
   canSkip: boolean;
   onSkip: () => void;
 };
 
-/** A velocidade mora no `settingsStore` persistido: quem escolheu 4x não reescolhe a cada batalha. */
 export function BattleControls({ canSkip, onSkip }: Props) {
   const speed = useSelector(settingsStore, (snapshot) => snapshot.context.speed);
 
@@ -21,9 +19,6 @@ export function BattleControls({ canSkip, onSkip }: Props) {
         variant="outline"
         value={String(speed)}
         onValueChange={(value) => {
-          // `find` e não `Number(value)`: o Radix emite `''` ao clicar no item já
-          // ativo, e o `0` resultante viraria duração `Infinity` — que a spec do
-          // `setTimeout` converte para ~0, passando a batalha inteira num piscar.
           const next = PLAYBACK_SPEEDS.find((option) => String(option) === value);
           if (next) settingsStore.trigger.speedSet({ speed: next });
         }}
@@ -36,9 +31,6 @@ export function BattleControls({ canSkip, onSkip }: Props) {
         ))}
       </ToggleGroup>
 
-      {/* Some em vez de virar "Rever batalha": um ternário entre dois `<Button>` na
-          mesma posição é o mesmo elemento para o React, e o segundo clique de um
-          duplo clique acertaria o botão de reiniciar recém-nascido ali. */}
       {canSkip && (
         <Button variant="secondary" onClick={onSkip}>
           <FastForward /> Pular para o fim

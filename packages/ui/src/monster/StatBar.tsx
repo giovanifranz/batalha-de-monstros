@@ -1,6 +1,5 @@
 import { cn } from '../lib/utils.ts';
 
-/** Teto visual por stat, espelhando os limites do `monsterFormSchema`: hp e o resto têm escalas diferentes. */
 const MAX_BY_TONE = {
   hp: 300,
   attack: 100,

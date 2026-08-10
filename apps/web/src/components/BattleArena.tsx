@@ -22,16 +22,10 @@ type Props = {
   onReplay: () => void;
 };
 
-/**
- * Cola a máquina de reprodução nos componentes puros do `@arena/ui`: só escolhe
- * QUAL frame do `result` está na tela. Reiniciar o playback é REMONTAR (ver a
- * `key` na rota), nunca sincronizar um efeito com a identidade de `result`.
- */
 export function BattleArena({ left, right, result, onReplay }: Props) {
   const speed = useSelector(settingsStore, (snapshot) => snapshot.context.speed);
   const [snapshot, , actorRef] = useMachine(battleMachine, { input: { result, speed } });
 
-  // `input` é lido uma vez, na criação do ator: trocar a velocidade em curso vira evento.
   useEffect(() => {
     sendIfActive(actorRef, { type: 'speed.changed', speed });
   }, [speed, actorRef]);
@@ -42,19 +36,14 @@ export function BattleArena({ left, right, result, onReplay }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* .arena liga a fonte pixel para tudo aqui dentro. */}
       <div className="arena space-y-4">
         <h2 className="sr-only">Lutadores</h2>
 
-        {/* `attacking` e `takingHit` NUNCA saem juntos: 'announcing' e 'impacting'
-            são estados irmãos, senão o anel de ataque mentiria por cima do golpe. */}
         <BattleStage
           fighters={fighters}
           hp={selectHp(snapshot)}
           attacking={snapshot.hasTag('announcing') ? currentTurn?.attacker : undefined}
           takingHit={snapshot.hasTag('impacting') ? currentTurn?.defender : undefined}
-          // A barra tem de caber DENTRO da batida de impacto (`IMPACT_MS / speed`):
-          // fixa em 700 ms, em 4x ela ainda esvaziava quando o `VictoryPanel` montava.
           drainMs={Math.min(700, Math.round(IMPACT_MS / speed))}
         />
 
@@ -67,8 +56,6 @@ export function BattleArena({ left, right, result, onReplay }: Props) {
         />
       </div>
 
-      {/* `snapshot.can(...)` e não `status === 'finished'` refeito na view: quem
-          responde é a máquina. */}
       <BattleControls
         canSkip={snapshot.can({ type: 'battle.skip' })}
         onSkip={() => sendIfActive(actorRef, { type: 'battle.skip' })}

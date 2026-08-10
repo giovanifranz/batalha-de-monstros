@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./roster/collection": "./src/roster/collection.ts"
+    "./roster/collection": "./src/roster/collection.ts",
+    "./roster/queries": "./src/roster/queries.ts"
   },
   "scripts": {
     "test:mutation": "stryker run"

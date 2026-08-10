@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { monsterFormSchema, monsterSchema } from './monster.ts';
 
+const GOLEM_ID = '9c4f0b2e-6d1a-4a5b-8f3c-2e7d1b9a4c60';
+
+const RANDOM_UUID_SAMPLE = '3f2b1c8d-5e47-4a91-bd06-8c1e5f7a2b34';
+
 function validValues() {
   return {
     name: 'Monstro',
@@ -134,6 +138,33 @@ describe('monsterFormSchema', () => {
     expect(result.error?.issues[0]?.message).toBe('Informe uma URL de imagem válida');
   });
 
+  it('rejeita URL de imagem acima de 1 MB', () => {
+    // Arrange
+    const gigante = `data:image/png;base64,${'A'.repeat(1_000_001)}`;
+    const values = { ...validValues(), imageUrl: gigante };
+
+    // Act
+    const result = monsterFormSchema.safeParse(values);
+
+    // Assert
+    expect(result.error?.issues[0]?.message).toBe(
+      'Imagem muito grande — use um link em vez de colar a imagem inteira',
+    );
+  });
+
+  it('aceita URL de imagem exatamente no teto de 1 MB', () => {
+    // Arrange
+    const prefixo = 'data:image/png;base64,';
+    const noTeto = prefixo + 'A'.repeat(1_000_000 - prefixo.length);
+    const values = { ...validValues(), imageUrl: noTeto };
+
+    // Act
+    const result = monsterFormSchema.safeParse(values);
+
+    // Assert
+    expect(result.success).toBe(true);
+  });
+
   it('aceita quando a soma dos atributos é exatamente 250 pontos', () => {
     // Arrange
     const values = { ...validValues(), attack: 50, defense: 50, speed: 50, hp: 300 };
@@ -173,12 +204,34 @@ describe('monsterSchema', () => {
 
   it('aceita os valores do formulário acrescidos de um id', () => {
     // Arrange
+    const values = { ...validValues(), id: GOLEM_ID };
+
+    // Act
+    const result = monsterSchema.safeParse(values);
+
+    // Assert
+    expect(result.data).toMatchObject({ id: GOLEM_ID });
+  });
+
+  it('rejeita um id que não é um UUID v4', () => {
+    // Arrange
     const values = { ...validValues(), id: 'golem' };
 
     // Act
     const result = monsterSchema.safeParse(values);
 
     // Assert
-    expect(result.data).toMatchObject({ id: 'golem' });
+    expect(result.success).toBe(false);
+  });
+
+  it('aceita o que o crypto.randomUUID do runtime gera', () => {
+    // Arrange
+    const values = { ...validValues(), id: RANDOM_UUID_SAMPLE };
+
+    // Act
+    const result = monsterSchema.safeParse(values);
+
+    // Assert
+    expect(result.success).toBe(true);
   });
 });

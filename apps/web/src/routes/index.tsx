@@ -16,22 +16,16 @@ import {
 import { Button } from '@arena/ui/components/button';
 import { Card, CardContent } from '@arena/ui/components/card';
 import { MonsterGrid } from '@arena/ui/monster/MonsterGrid';
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Plus, Sparkles, Swords, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MonsterFilters } from '@/components/MonsterFilters.tsx';
 import { MonsterPagination } from '@/components/MonsterPagination.tsx';
-import { seedRoster } from '@/db/seed-monsters.ts';
+import { seedExamples } from '@/db/seed-monsters.ts';
 import { useMonsterBrowser } from '@/hooks/useMonsterBrowser.ts';
-import {
-  STORAGE_FULL_DURATION_MS,
-  STORAGE_FULL_MESSAGE,
-  isStorageFull,
-} from '@/lib/storage-error.ts';
-import { validateBrowserSearch } from '@/search-params.ts';
+import { validateBrowserSearch } from '@/lib/search-params.ts';
 
 export const Route = createFileRoute('/')({
-  // Sem isto o router descarta os params que o nuqs escreve.
   validateSearch: validateBrowserSearch,
   component: RosterPage,
 });
@@ -40,10 +34,6 @@ function monsterCount(count: number): string {
   return count === 1 ? '1 monstro' : `${count} monstros`;
 }
 
-/**
- * Função, e não interpolação: o português concorda em número no substantivo E no
- * particípio ("1 monstro pronto" contra "4 monstros prontos").
- */
 function rosterSummary(totalItems: number, rosterSize: number, filtering: boolean): string {
   if (rosterSize === 0) return 'Nenhum monstro cadastrado ainda.';
   if (filtering) return `Mostrando ${totalItems} de ${monsterCount(rosterSize)}.`;
@@ -56,8 +46,8 @@ function rosterSummary(totalItems: number, rosterSize: number, filtering: boolea
 function RosterPage() {
   const { roster } = Route.useRouteContext();
   const browser = useMonsterBrowser(roster);
+  const navigate = useNavigate();
 
-  // O monstro que o diálogo de confirmação está segurando.
   const [pendingRemoval, setPendingRemoval] = useState<Monster | null>(null);
 
   async function removeConfirmed(monster: Monster) {
@@ -65,7 +55,6 @@ function RosterPage() {
       await removeMonster(roster, monster.id);
       toast.success(`${monster.name} saiu do roster.`);
     } catch (error) {
-      // A outra aba pode ter excluído o mesmo monstro primeiro.
       toast.error(
         error instanceof MonsterNotFoundError
           ? `${monster.name} já não estava no roster.`
@@ -76,17 +65,12 @@ function RosterPage() {
 
   async function restoreExamples() {
     try {
-      const seeded = await seedRoster(roster);
+      const seeded = await seedExamples(roster);
       toast[seeded ? 'success' : 'info'](
         seeded ? 'Monstros de exemplo restaurados.' : 'O roster já tem monstros.',
       );
-    } catch (error) {
-      // A semente inteira é UM insert em lote: com a cota estourada ele falha inteiro.
-      if (isStorageFull(error)) {
-        toast.error(STORAGE_FULL_MESSAGE, { duration: STORAGE_FULL_DURATION_MS });
-      } else {
-        toast.error('Não foi possível restaurar os exemplos.');
-      }
+    } catch {
+      toast.error('Não foi possível restaurar os exemplos.');
     }
   }
 
@@ -133,8 +117,6 @@ function RosterPage() {
           </CardContent>
         </Card>
       ) : browser.totalItems === 0 ? (
-        // `h2` porque neste estado o grid some e sobraria só o `h1` para quem
-        // navega por títulos. O texto dele difere do parágrafo de propósito.
         <Card>
           <CardContent className="space-y-4 py-12 text-center">
             <h2 className="text-lg font-semibold">Nenhum resultado</h2>
@@ -145,7 +127,16 @@ function RosterPage() {
           </CardContent>
         </Card>
       ) : (
-        <MonsterGrid monsters={browser.monsters} onRemove={setPendingRemoval} />
+        <MonsterGrid
+          monsters={browser.monsters}
+          onEdit={(monster) =>
+            void navigate({
+              to: '/monsters/$monsterId/edit',
+              params: { monsterId: monster.id },
+            })
+          }
+          onRemove={setPendingRemoval}
+        />
       )}
 
       <MonsterPagination
@@ -164,8 +155,6 @@ function RosterPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogMedia>
-              {/* `-ink`, não `--destructive`: o ícone quer 3:1 (1.4.11) e
-                  `--destructive` sobre o popover mede 2.81 no escuro (o `-ink`, 6.18). */}
               <Trash2 className="text-destructive-ink" />
             </AlertDialogMedia>
             <AlertDialogTitle>Excluir {pendingRemoval?.name}?</AlertDialogTitle>

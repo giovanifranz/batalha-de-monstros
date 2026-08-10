@@ -21,7 +21,6 @@ export const AssociatedWithInput: Story = {
     </div>
   ),
   play: async ({ canvas, userEvent }) => {
-    // `htmlFor` associa o Label ao Input: clicar no texto foca o campo.
     await userEvent.click(canvas.getByText('Apelido'));
     await expect(canvas.getByPlaceholderText('Como te chamamos?')).toHaveFocus();
   },
