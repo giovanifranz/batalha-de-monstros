@@ -165,35 +165,41 @@ Detalhes que valem a pena:
 
 ## Integração contínua
 
-Cinco jobs em container, todos em `.github/workflows/ci.yml`:
+Em `.github/workflows/ci.yml`, todos em container:
 
-| Job                | O que roda                                         |
-| ------------------ | -------------------------------------------------- |
-| `ready`            | `vp run ready` + a cobertura como artefato         |
-| `playwright`       | os 33 cenários, com o relatório HTML como artefato |
-| `stryker`          | os dois pacotes com `break: 100`                   |
-| `regressão visual` | os 95 PNGs contra a baseline do cache              |
-| `sonarqube cloud`  | análise estática e cobertura, com quality gate     |
+| Job                        | O que roda                                         | Onde         |
+| -------------------------- | -------------------------------------------------- | ------------ |
+| `ready`                    | `vp run ready` + a cobertura como artefato         | PR e `main`  |
+| `playwright`               | os 33 cenários, com o relatório HTML como artefato | só no PR     |
+| `stryker`                  | os dois pacotes com `break: 100`                   | só no PR     |
+| `regressão visual`         | os 95 PNGs contra a baseline do cache              | só no PR     |
+| `gravar a baseline visual` | recaptura os 95 PNGs e guarda no cache             | só no `main` |
+| `sonarqube cloud`          | análise estática e cobertura, com quality gate     | PR e `main`  |
+| `publicar o Storybook`     | build com o base do Pages e deploy                 | só no `main` |
 
-O `publish` manda o Storybook para o GitHub Pages, e só a partir da branch padrão.
+**Os três portões que só rodam no PR validam a mesma árvore que o merge produz**,
+então repeti-los depois é gastar minuto sem descobrir nada. O que sobra no `main`
+é o que não dá para adiantar: a análise da branch padrão, que é a linha de base de
+"código novo" da SonarCloud, e a publicação.
 
 ### Aprovando uma mudança visual num PR
 
-A baseline vive no cache do Actions, é por sistema **e por arquitetura**, e só a
-branch padrão a gravava — então uma mudança visual intencional reprovava para
-sempre, e aprovar localmente não serve porque a sua captura não é Linux X64.
+A baseline vive no cache do Actions e é por sistema **e por arquitetura** — aprovar
+localmente não serve, porque a sua captura não é Linux X64.
 
 1. Abra o artefato `visual-report` da execução que reprovou e confira cada
    diferença.
 2. Ponha a label **`vrt-approved`** no PR. Isso redispara o CI, porque `labeled`
    está nos `types` do trigger.
-3. O job grava a baseline em vez de comparar. Como o `restore-keys` casa por
-   prefixo e devolve a entrada mais recente, ela passa a valer para a branch
-   padrão e o merge entra verde.
+3. O job de comparação sai de cena nesse PR, e o merge entra verde. Depois do
+   merge, o job `gravar a baseline visual` recaptura no `main` e é essa gravação
+   que passa a valer para todo mundo.
 
-Quem põe a label auto-aprova. E aprovar depois **abandonando** o PR deixa uma
-baseline não mesclada como a mais recente, o que reprova a branch padrão até
-alguém regravar.
+Quem põe a label auto-aprova. E a gravação é **só no `main`** por uma restrição do
+Actions, não por gosto: cache criado num run de `pull_request` fica no escopo
+`refs/pull/<n>/merge` e só volta em re-run do mesmo PR — nenhuma outra branch o lê.
+O efeito colateral bom é que abandonar um PR aprovado não deixa resíduo, porque
+nada foi gravado fora dele.
 
 ## Deploy
 

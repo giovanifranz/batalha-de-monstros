@@ -53,6 +53,7 @@ jobs:
 
   e2e:
     name: playwright (33 cenários)
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -77,6 +78,7 @@ jobs:
 
   mutation:
     name: stryker (domain + infra)
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -104,6 +106,7 @@ jobs:
 
   visual:
     name: regressão visual (95 stories)
+    if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -128,15 +131,9 @@ jobs:
 
       - name: Avisar quando não existe baseline
         if: ${{ steps.baseline.outputs.cache-matched-key == '' }}
-        run: echo "::warning::sem baseline no cache — esta execução apenas grava a primeira, nada foi comparado"
+        run: echo "::warning::sem baseline no cache — nada foi comparado. A baseline compartilhada é gravada pelo job \`baseline\`, depois do merge"
 
-      - name: Comparar com a baseline
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
-        run: vp run vrt
-
-      - name: Aprovar a baseline
-        if: ${{ contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
-        run: vp run 'vrt:approve'
+      - run: vp run vrt
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -146,9 +143,29 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Guardar a baseline
-        if: ${{ (github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || contains(github.event.pull_request.labels.*.name, 'vrt-approved') }}
-        uses: actions/cache/save@v4
+  # Único escopo de cache que outras branches conseguem ler é o da branch padrão:
+  # cache gravado em run de `pull_request` fica em `refs/pull/N/merge` e só serve
+  # para re-runs daquele PR. Por isso a baseline compartilhada se grava AQUI, e
+  # este job não compara nada — quem reprova mudança de pixel é o `visual`, no PR.
+  baseline:
+    name: gravar a baseline visual
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: ghcr.io/voidzero-dev/vite-plus:0.2.8
+      options: --user root
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: vp install --frozen-lockfile
+
+      - name: Chromium do Playwright
+        run: vp -C packages/ui exec playwright install --with-deps chromium
+
+      - run: vp run 'vrt:approve'
+
+      - uses: actions/cache/save@v4
         with:
           path: packages/ui/.vrt/baseline
           key: vrt-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
@@ -195,12 +212,6 @@ jobs:
       # em verde independentemente do resultado: o job existiria sem nunca poder
       # reprovar nada. Com ele, o job espera o veredito e falha junto com o
       # portão.
-      #
-      # DE PROPÓSITO fora do `needs` do `publish`, por ora: na primeira análise
-      # de um projeto novo a SonarCloud ainda não tem linha de base, então o
-      # portão julga o repositório inteiro como "código novo". Depois que a
-      # primeira análise de `main` fixar a base, `sonarqube` entra no `needs`
-      # junto com os outros quatro.
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
         env:
@@ -210,7 +221,7 @@ jobs:
 
   publish:
     name: publicar o Storybook no GitHub Pages
-    needs: [ready, e2e, mutation, visual]
+    needs: [ready, sonarqube]
     if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
