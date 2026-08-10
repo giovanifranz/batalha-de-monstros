@@ -1,0 +1,27 @@
+{
+  "name": "batalha-de-monstros",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "ready": "vp check && vp test && vp run test:stories && vp run -r build"
+  },
+  "devDependencies": {
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.20.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

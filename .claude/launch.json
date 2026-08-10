@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "storybook",
+      "runtimeExecutable": "vp",
+      "runtimeArgs": ["-C", "packages/ui", "run", "storybook"],
+      "port": 6006
+    }
+  ]
+}
