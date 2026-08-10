@@ -1,0 +1,22 @@
+{
+  "name": "@arena/infra",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./roster/collection": "./src/roster/collection.ts"
+  },
+  "scripts": {
+    "test:mutation": "stryker run"
+  },
+  "dependencies": {
+    "@arena/domain": "workspace:*",
+    "@tanstack/db": "catalog:"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "catalog:",
+    "@stryker-mutator/vitest-runner": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
