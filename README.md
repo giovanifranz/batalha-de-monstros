@@ -597,6 +597,25 @@ empurrar uma branch `gh-pages` à mão.
 Um repositório tem **um** site do Pages, e ele é do Storybook. O app não entra
 nesse artefato: ele sai como imagem de container, abaixo.
 
+**Um passo é manual, uma vez por repositório**: em _Settings › Pages › Build and
+deployment_, deixar **Source = "GitHub Actions"**. Enquanto isso não estiver
+feito, o job `publish` morre logo no `configure-pages` com:
+
+```
+Error: Get Pages site failed. Please verify that the repository has Pages
+enabled and configured to build using GitHub Actions
+```
+
+Não é erro de build nem de permissão — é a API do Pages devolvendo 404 para um
+site que nunca foi criado. A action tem um `enablement: true` que criaria o site
+sozinha, mas ele exige `administration: write`, permissão que o `GITHUB_TOKEN`
+não pode receber; seria preciso guardar um PAT em secret só para um clique que
+se dá uma vez. Pela linha de comando o mesmo clique é:
+
+```bash
+gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow
+```
+
 **O prefixo do site (`base`) é a única coisa que pode dar errado aqui**, e ela
 falha em silêncio: um `base` errado publica uma página que abre com todo asset
 em 404. Por isso ele não é digitado em lugar nenhum — sai do output `base_path`

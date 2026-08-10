@@ -159,7 +159,7 @@ jobs:
 
       - name: Setup Pages
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Build do Storybook
         env:
@@ -180,7 +180,7 @@ jobs:
           fi
           echo "base aplicado: ${expected}"
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: packages/ui/storybook-static
 
