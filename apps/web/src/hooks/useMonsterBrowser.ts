@@ -8,7 +8,7 @@ import { debounce, useQueryStates } from 'nuqs';
 import { paginate } from '@/lib/pagination.ts';
 import { browserParsers, serializeBrowserSearch } from '@/lib/search-params.ts';
 
-export const PAGE_SIZE = 8;
+export const PAGE_SIZE = 9;
 
 export type MonsterBrowser = {
   q: string;
