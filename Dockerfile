@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM ghcr.io/voidzero-dev/vite-plus:latest AS build
+FROM ghcr.io/voidzero-dev/vite-plus:0.2.8 AS build
 
 WORKDIR /app
 

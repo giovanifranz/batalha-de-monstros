@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ghcr.io/voidzero-dev/vite-plus:latest
+      image: ghcr.io/voidzero-dev/vite-plus:0.2.8
       options: --user root
     steps:
       - uses: actions/checkout@v5
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ghcr.io/voidzero-dev/vite-plus:latest
+      image: ghcr.io/voidzero-dev/vite-plus:0.2.8
       options: --user root
     steps:
       - uses: actions/checkout@v5
@@ -63,10 +63,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ghcr.io/voidzero-dev/vite-plus:latest
+      image: ghcr.io/voidzero-dev/vite-plus:0.2.8
       options: --user root
     steps:
       - uses: actions/checkout@v5
+
+      - name: procps (o Stryker chama `ps` para varrer os processos filhos)
+        run: apt-get update && apt-get install -y --no-install-recommends procps
 
       - run: vp install --frozen-lockfile
 
@@ -87,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ghcr.io/voidzero-dev/vite-plus:latest
+      image: ghcr.io/voidzero-dev/vite-plus:0.2.8
       options: --user root
     steps:
       - uses: actions/checkout@v5
@@ -133,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: ghcr.io/voidzero-dev/vite-plus:latest
+      image: ghcr.io/voidzero-dev/vite-plus:0.2.8
       options: --user root
 
     permissions:
