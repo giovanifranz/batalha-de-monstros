@@ -30,7 +30,6 @@ export const Destructive: Story = {
   ),
 };
 
-// Prova que o preview carregou o CSS real do tema, não só que o componente montou.
 export const CssCheck: Story = {
   render: () => (
     <Alert>
@@ -40,7 +39,6 @@ export const CssCheck: Story = {
   ),
   play: async ({ canvas }) => {
     const alert = canvas.getByRole('alert');
-    // `rounded-lg` mapeia para 4px neste tema; o padrão do Tailwind não é 4px.
     await expect(getComputedStyle(alert).borderRadius).toBe('4px');
   },
 };
@@ -62,7 +60,6 @@ export const ComAcao: Story = {
     const title = canvas.getByText('Lutadores pré-selecionados');
     const action = canvas.getByRole('button', { name: 'Limpar pré-seleção' });
 
-    // A ação fica NO FLUXO, numa linha própria — nunca por cima do título.
     await expect(action.getBoundingClientRect().top).toBeGreaterThanOrEqual(
       title.getBoundingClientRect().bottom,
     );

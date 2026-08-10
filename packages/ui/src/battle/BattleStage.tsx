@@ -7,7 +7,6 @@ type Props = {
   hp: Record<Side, number>;
   attacking?: Side;
   takingHit?: Side;
-  /** Duração do esvaziamento das barras de HP: quem sabe o ritmo é o reprodutor em `apps/web`. */
   drainMs?: number;
 };
 
@@ -25,8 +24,6 @@ export function BattleStage({ fighters, hp, attacking, takingHit, drainMs }: Pro
           drainMs={drainMs}
         />
 
-        {/* Chip opaco em vez de texto solto: o fundo daqui é um gradiente, e
-            texto sobre gradiente não tem contraste que se possa medir. */}
         <p className="bg-card text-card-foreground ring-foreground/15 shrink-0 rounded-full px-3 py-2 font-mono text-sm font-bold ring-1">
           VS
         </p>

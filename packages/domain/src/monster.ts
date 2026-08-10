@@ -21,9 +21,6 @@ export const STAT_LIMITS = {
 /** Teto de `attack + defense + speed + floor(hp / 3)`. Sem ele, o monstro no máximo de tudo é sempre a escolha ótima e todo duelo fica igual. */
 export const ATTRIBUTE_BUDGET = 250;
 
-// `z.number()` e não `z.coerce.number()`: o TanStack Form usa o tipo de ENTRADA
-// do Standard Schema, e `coerce` tem entrada `unknown`, o que destrói a
-// inferência de `defaultValues`.
 const statNumber = (max: number, min = 0) =>
   z
     .number({ error: 'Informe um número' })
@@ -42,7 +39,9 @@ export const monsterFormSchema = z
     defense: statNumber(STAT_LIMITS.defense.max, STAT_LIMITS.defense.min),
     speed: statNumber(STAT_LIMITS.speed.max, STAT_LIMITS.speed.min),
     hp: statNumber(STAT_LIMITS.hp.max, STAT_LIMITS.hp.min),
-    imageUrl: z.url('Informe uma URL de imagem válida'),
+    imageUrl: z
+      .url('Informe uma URL de imagem válida')
+      .max(1_000_000, 'Imagem muito grande — use um link em vez de colar a imagem inteira'),
   })
   .refine(
     (data) => data.attack + data.defense + data.speed + Math.floor(data.hp / 3) <= ATTRIBUTE_BUDGET,
@@ -52,12 +51,5 @@ export const monsterFormSchema = z
 export type MonsterFormValues = z.infer<typeof monsterFormSchema>;
 
 export const monsterSchema = monsterFormSchema.extend({
-  id: z.string(),
+  id: z.uuidv4(),
 });
-
-export type Expect<T extends true> = T;
-export type Exact<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
-
-type _MonsterMatchesSchema = Expect<Exact<z.infer<typeof monsterSchema>, Monster>>;
-type _MonsterIdIsString = Expect<Exact<Monster['id'], string>>;

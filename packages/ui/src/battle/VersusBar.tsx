@@ -9,9 +9,7 @@ import { MonsterArt } from '../monster/MonsterArt.tsx';
 type Props = {
   left: Monster | null;
   right: Monster | null;
-  /** Slot que vai receber a próxima seleção feita no grid. `null` quando os dois já estão cheios. */
   activeSlot: Side | null;
-  /** Prop, não derivação: quem decide é a máquina de seleção em `apps/web`. */
   canFight: boolean;
   onClear: (slot: Side) => void;
   onSwap: () => void;
@@ -20,10 +18,6 @@ type Props = {
 
 const SLOT_LABEL: Record<Side, string> = { left: 'Lutador 1', right: 'Lutador 2' };
 
-/**
- * O que a barra anuncia depois de cada clique no grid: o foco fica no card, e
- * qual slot é o da vez era informação só do contorno colorido.
- */
 function announcement(
   left: Monster | null,
   right: Monster | null,
@@ -54,20 +48,14 @@ function Slot({
 }) {
   return (
     <Card
-      // `aria-current` e o "próximo" abaixo carregam o mesmo sinal que o contorno
-      // colorido: sem eles a cor seria a única portadora (reprova a 1.4.1).
       aria-current={active ? 'true' : undefined}
       className={cn(
-        // `w-28` e não `w-32`: a 320px os dois slots mais o botão somavam 312px
-        // contra 288px disponíveis, e o "Lutar!" subia de linha.
         'relative w-28 items-center gap-1 p-3 text-center sm:w-40',
         active && 'border-primary bg-primary/5',
       )}
     >
       <span className="text-muted-foreground text-xs uppercase">{SLOT_LABEL[side]}</span>
 
-      {/* `invisible` em vez de não renderizar: reserva a altura nos dois slots, e
-          `visibility: hidden` também tira o nó da árvore de acessibilidade. */}
       <span
         className={cn(
           'text-[10px] leading-none font-semibold uppercase',
@@ -124,8 +112,6 @@ export function VersusBar({ left, right, activeSlot, canFight, onClear, onSwap, 
         <Swords /> Lutar!
       </Button>
 
-      {/* `role="status"` é polite: espera a fala em curso terminar, então completa
-          o anúncio do `aria-pressed` do card em vez de atropelá-lo. */}
       <p role="status" className="sr-only">
         {announcement(left, right, activeSlot)}
       </p>

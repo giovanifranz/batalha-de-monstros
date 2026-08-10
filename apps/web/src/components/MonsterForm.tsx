@@ -25,7 +25,6 @@ const DEFAULTS: MonsterFormValues = {
   imageUrl: '',
 };
 
-/** Só rótulos e ordem: os limites vêm de `STAT_LIMITS`, nunca de uma cópia local. */
 const STAT_FIELDS = [
   { name: 'attack', label: 'Ataque', ...STAT_LIMITS.attack },
   { name: 'defense', label: 'Defesa', ...STAT_LIMITS.defense },
@@ -33,20 +32,10 @@ const STAT_FIELDS = [
   { name: 'hp', label: 'HP', ...STAT_LIMITS.hp },
 ] as const;
 
-/**
- * Standard Schema devolve issues, não strings. `unknown[]` porque
- * `field.state.meta.errors` tem um tipo derivado por campo, e o único contrato
- * comum em runtime é "objeto com `message`".
- */
 function firstError(errors: readonly unknown[]): string | undefined {
   return (errors[0] as { message?: string } | undefined)?.message;
 }
 
-/**
- * `validators.onChange` valida o formulário INTEIRO a cada tecla: sem este
- * filtro, digitar no "Nome" já anuncia o erro de um campo nunca visitado. Não
- * esconde nada no submit, que marca todo campo montado como tocado antes de validar.
- */
 function visibleError(meta: {
   isTouched: boolean;
   errors: readonly unknown[];
@@ -54,7 +43,6 @@ function visibleError(meta: {
   return meta.isTouched ? firstError(meta.errors) : undefined;
 }
 
-/** NaN (campo de número vazio) conta como 0 no total ao vivo, nunca quebra a soma. */
 function safe(value: number): number {
   return Number.isNaN(value) ? 0 : value;
 }
@@ -62,18 +50,20 @@ function safe(value: number): number {
 type Props = {
   onSubmit: (values: MonsterFormValues) => Promise<void> | void;
   submitLabel?: string;
+  submittingLabel?: string;
+  defaultValues?: MonsterFormValues;
 };
 
-export function MonsterForm({ onSubmit, submitLabel = 'Cadastrar monstro' }: Props) {
-  /**
-   * Trava de submit duplo independente do `canSubmit`/`isSubmitting`: `canSubmit`
-   * volta a `true` depois da primeira tentativa, e dois cliques mais rápidos que
-   * um render chegam antes do `disabled` do botão. Um `useRef` é síncrono.
-   */
+export function MonsterForm({
+  onSubmit,
+  submitLabel = 'Cadastrar monstro',
+  submittingLabel = 'Cadastrando…',
+  defaultValues = DEFAULTS,
+}: Props) {
   const isSubmittingRef = useRef(false);
 
   const form = useForm({
-    defaultValues: DEFAULTS,
+    defaultValues,
     validators: { onChange: monsterFormSchema },
     onSubmit: async ({ value }) => {
       if (isSubmittingRef.current) return;
@@ -140,8 +130,6 @@ export function MonsterForm({ onSubmit, submitLabel = 'Cadastrar monstro' }: Pro
                           max={max}
                           value={Number.isNaN(field.state.value) ? '' : field.state.value}
                           onBlur={field.handleBlur}
-                          // valueAsNumber evita o vaivém string<->number.
-                          // Campo vazio vira NaN, que o schema rejeita.
                           onChange={(event) => field.handleChange(event.target.valueAsNumber)}
                         />
                       )}
@@ -156,8 +144,6 @@ export function MonsterForm({ onSubmit, submitLabel = 'Cadastrar monstro' }: Pro
                 <Dices className="size-4" /> Sortear atributos
               </Button>
 
-              {/* O orçamento é validação de OBJETO, não de campo: o TanStack Form
-                  deixa as issues sem `path` em `errorMap.onChange['']`. */}
               <form.Subscribe
                 selector={(state) =>
                   [
@@ -171,7 +157,6 @@ export function MonsterForm({ onSubmit, submitLabel = 'Cadastrar monstro' }: Pro
                 children={([attack, defense, speed, hp, onChangeIssues]) => (
                   <div className="w-full sm:w-64">
                     <PointBudget
-                      // Math.round para o indicador ao vivo não mostrar "130.5 pontos".
                       used={Math.round(
                         safe(attack) + safe(defense) + safe(speed) + Math.floor(safe(hp) / 3),
                       )}
@@ -211,13 +196,12 @@ export function MonsterForm({ onSubmit, submitLabel = 'Cadastrar monstro' }: Pro
           selector={(state) => [state.isSubmitting, state.canSubmit] as const}
           children={([isSubmitting, canSubmit]) => (
             <Button type="submit" disabled={isSubmitting || !canSubmit}>
-              {isSubmitting ? 'Cadastrando…' : submitLabel}
+              {isSubmitting ? submittingLabel : submitLabel}
             </Button>
           )}
         />
       </form>
 
-      {/* O Subscribe evita re-renderizar o formulário todo a cada tecla. */}
       <form.Subscribe
         selector={(state) => state.values}
         children={(values) => (
@@ -227,8 +211,6 @@ export function MonsterForm({ onSubmit, submitLabel = 'Cadastrar monstro' }: Pro
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="bg-muted flex h-36 items-center justify-center rounded-md">
-                {/* Sem `key={values.imageUrl}`: o `MonsterArt` guarda QUAL url
-                    falhou, e um `key` aqui remontaria a cada tecla. */}
                 <ImagePreview src={values.imageUrl} alt={values.name} />
               </div>
               <p className="truncate font-semibold">{values.name || '???'}</p>

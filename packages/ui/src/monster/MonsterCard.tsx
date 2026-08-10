@@ -1,5 +1,5 @@
 import type { Monster } from '@arena/domain/monster';
-import { Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '../components/badge.tsx';
 import { Button } from '../components/button.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/card.tsx';
@@ -11,18 +11,19 @@ type Props = {
   monster: Monster;
   selectedAs?: 'left' | 'right';
   onSelect?: (monster: Monster) => void;
+  onEdit?: (monster: Monster) => void;
   onRemove?: (monster: Monster) => void;
 };
 
 const SLOT_LABEL = { left: 'Lutador 1', right: 'Lutador 2' } as const;
 
-export function MonsterCard({ monster, selectedAs, onSelect, onRemove }: Props) {
+export function MonsterCard({ monster, selectedAs, onSelect, onEdit, onRemove }: Props) {
   const interactive = Boolean(onSelect);
 
   return (
     <Card
       className={cn(
-        'relative gap-3 transition-all',
+        'relative gap-3 overflow-visible transition-all',
         interactive && 'hover:border-primary/60 cursor-pointer hover:-translate-y-1',
         selectedAs && 'border-primary ring-primary/30 ring-2',
       )}
@@ -65,36 +66,49 @@ export function MonsterCard({ monster, selectedAs, onSelect, onRemove }: Props) 
         <StatBar label="DEF" value={monster.defense} tone="defense" />
         <StatBar label="SPD" value={monster.speed} tone="speed" />
 
-        {onRemove && (
-          <Button
-            variant="ghost"
-            size="sm"
-            /*
-             * O hover PRECISA ser um tint de `--destructive`: com o cinza que o
-             * `ghost` traz, o rótulo media 3.74 contra o fundo do hover. Aqui dá
-             * 7.34 claro / 5.84 escuro.
-             *
-             * `dark:hover:` explícito não é redundância — o `ghost` traz
-             * `dark:hover:bg-muted/50`, um conjunto de variantes DIFERENTE, que o
-             * tailwind-merge não descarta.
-             */
-            className="text-destructive-ink hover:text-destructive-ink hover:bg-destructive/10 dark:hover:bg-destructive/20 mt-1 h-8 w-full"
-            /*
-             * O rótulo VISÍVEL continua "Excluir"; o ACESSÍVEL carrega o dono,
-             * porque seis botões "Excluir" numa lista não dizem qual monstro sai.
-             * A 2.5.3 (Label in Name) segue satisfeita: o visível é PREFIXO do
-             * acessível, então comando de voz ainda casa.
-             */
-            aria-label={`Excluir ${monster.name}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onRemove(monster);
-            }}
-          >
-            <Trash2 className="size-3.5" /> Excluir
-          </Button>
+        {(onEdit || onRemove) && (
+          <div className={cn('mt-1 grid gap-2', onEdit && onRemove && 'grid-cols-2')}>
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-full"
+                aria-label={`Editar ${monster.name}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit(monster);
+                }}
+              >
+                <Pencil className="size-3.5" /> Editar
+              </Button>
+            )}
+            {onRemove && <RemoveButton monster={monster} onRemove={onRemove} />}
+          </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function RemoveButton({
+  monster,
+  onRemove,
+}: {
+  monster: Monster;
+  onRemove: (monster: Monster) => void;
+}) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-destructive-ink hover:text-destructive-ink hover:bg-destructive/10 dark:hover:bg-destructive/20 h-8 w-full"
+      aria-label={`Excluir ${monster.name}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onRemove(monster);
+      }}
+    >
+      <Trash2 className="size-3.5" /> Excluir
+    </Button>
   );
 }

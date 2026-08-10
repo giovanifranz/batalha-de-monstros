@@ -51,7 +51,7 @@ jobs:
           retention-days: 7
 
   e2e:
-    name: playwright (33 cenários)
+    name: playwright (35 cenários)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -102,7 +102,7 @@ jobs:
           retention-days: 7
 
   visual:
-    name: regressão visual (90 stories)
+    name: regressão visual (95 stories)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:

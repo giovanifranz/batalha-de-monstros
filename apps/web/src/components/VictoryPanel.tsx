@@ -15,21 +15,12 @@ type Props = {
   onReplay: () => void;
 };
 
-/**
- * Fica FORA do `.arena` de propósito (a fonte pixel não serve a um resumo), e
- * sem `aria-live`: a `BattleTextBox` já narra o vencedor no último frame.
- */
 export function VictoryPanel({ left, right, result, onReplay }: Props) {
   const fighters: Record<Side, Monster> = { left, right };
   const winner = fighters[result.winner];
   const starter = fighters[result.first];
   const reason = initiativeReason(fighters, result.first);
 
-  /**
-   * Puxa o foco na montagem: o "Pular para o fim" DESMONTA no mesmo render, e sem
-   * isto o foco volta ao `<body>` e o próximo Tab recomeça do cabeçalho. Foca a
-   * REGIÃO, não um botão, para o leitor de tela anunciar o rótulo e o conteúdo.
-   */
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     panelRef.current?.focus({ preventScroll: true });
@@ -46,7 +37,6 @@ export function VictoryPanel({ left, right, result, onReplay }: Props) {
       <CardHeader className="flex flex-row items-center gap-3">
         <Trophy className="text-primary size-6 shrink-0" aria-hidden="true" />
         <div>
-          {/* `h2` de verdade, não o `CardTitle` (que é um `div`): é o degrau entre o `h1` e os `h3`. */}
           <h2 className="text-lg leading-snug font-semibold">{winner.name} venceu a batalha!</h2>
           <p className="text-muted-foreground text-sm">
             {reason
@@ -58,7 +48,6 @@ export function VictoryPanel({ left, right, result, onReplay }: Props) {
 
       <CardContent className="space-y-4">
         <div className="flex items-center gap-4">
-          {/* `MonsterArt` e não `<img>`: `image_url` é texto livre e pode quebrar. */}
           <MonsterArt
             src={winner.imageUrl}
             width={64}
@@ -96,7 +85,6 @@ export function VictoryPanel({ left, right, result, onReplay }: Props) {
             <RotateCcw /> Rever batalha
           </Button>
 
-          {/* Mesma rota com os params trocados: a `key` da arena muda e o playback recomeça. */}
           <Button asChild variant="secondary">
             <Link to="/battle/$leftId/$rightId" params={{ leftId: right.id, rightId: left.id }}>
               <ArrowLeftRight /> Inverter lados

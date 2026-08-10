@@ -4,7 +4,7 @@ import { distributePoints, rollStats } from './roll-stats.ts';
 
 describe('distributePoints', () => {
   it('nunca ultrapassa o teto de uma estatística mesmo pedindo mais do que ela comporta', () => {
-    // Arrange: só uma estatística (teto 100) e um total que estouraria para 150.
+    // Arrange
 
     // Act
     const result = distributePoints(150, [[0, 100]]);
@@ -14,7 +14,7 @@ describe('distributePoints', () => {
   });
 
   it('devolve os mínimos quando o total não alcança nem a soma deles', () => {
-    // Arrange: total 0, abaixo da soma dos mínimos (1 + 0 + 0 = 1).
+    // Arrange
 
     // Act
     const result = distributePoints(0, [
@@ -50,7 +50,7 @@ describe('distributePoints', () => {
       [0, 100],
     ] as const;
 
-    // Act: 500 chamadas reais, sem mockar Math.random.
+    // Act
     const sums = Array.from({ length: 500 }, () =>
       distributePoints(217, limits).reduce((sum, value) => sum + value, 0),
     );
@@ -80,7 +80,7 @@ describe('distributePoints', () => {
 
 describe('rollStats', () => {
   it('nunca produz um monstro que monsterFormSchema rejeita', () => {
-    // Arrange: contra o schema de verdade, não uma reimplementação da soma.
+    // Arrange
     const rolls = Array.from({ length: 500 }, () => ({
       name: 'Monstro de teste',
       ...rollStats(),
@@ -98,12 +98,12 @@ describe('rollStats', () => {
     // Arrange
     const rolls = Array.from({ length: 50 }, () => rollStats());
 
-    // Act: o mesmo "used" que o PointBudget calcula ao vivo.
+    // Act
     const spent = rolls.map(
       (roll) => roll.attack + roll.defense + roll.speed + Math.floor(roll.hp / 3),
     );
 
-    // Assert: mais de um total distinto em 50 rodadas.
+    // Assert
     expect(new Set(spent).size).toBeGreaterThan(1);
   });
 
@@ -114,7 +114,7 @@ describe('rollStats', () => {
     // Act
     const attacks = rolls.map((roll) => roll.attack);
 
-    // Assert: a amplitude tem que sobrar espaço para arquétipos como 92/25/100.
+    // Assert
     expect(Math.max(...attacks) - Math.min(...attacks)).toBeGreaterThan(15);
   });
 });

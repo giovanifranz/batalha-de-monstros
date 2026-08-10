@@ -1,21 +1,9 @@
 import { ATTRIBUTE_BUDGET, STAT_LIMITS, type MonsterFormValues } from '@arena/domain/monster';
 
-// Módulo sem JSX de propósito: o teste em Node alcança estas funções puras sem
-// arrastar React, Radix e TanStack Form.
-
 export function randomInt(min: number, max: number): number {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
-/**
- * Distribui `total` pontos entre as estatísticas de `limits` por "stars and
- * bars" — sorteia os cortes, não um ponto de cada vez: distribuir ponto a ponto
- * é multinomial e converge para partes iguais, nunca produzindo um 92/25/100.
- *
- * `total` é clampado no intervalo alcançável: abaixo da soma dos mínimos
- * (inclusive `NaN`) devolve os mínimos; acima da soma dos máximos o excedente é
- * descartado.
- */
 export function distributePoints(
   total: number,
   limits: readonly (readonly [number, number])[],
@@ -32,7 +20,6 @@ export function distributePoints(
   const bounds = [0, ...cuts, spendable];
   const values = mins.map((min, index) => min + (bounds[index + 1] - bounds[index]));
 
-  // O corte aleatório pode passar do teto de uma estatística: redistribui o excedente.
   let overflow = 0;
   const clamped = values.map((value, index) => {
     if (value > maxs[index]) {
@@ -60,12 +47,6 @@ const ROLLABLE_LIMITS = [
   [STAT_LIMITS.speed.min, STAT_LIMITS.speed.max],
 ] as const;
 
-/**
- * Sorteia HP primeiro e o converte em pontos (⌊hp / 3⌋, a conversão do refine do
- * schema). `spend` também é sorteado, e não o máximo do que sobra: gastar tudo
- * deixava "Restam 0 pontos" em todo sorteio e qualquer ajuste manual já nascia
- * estourado.
- */
 export function rollStats(): Pick<MonsterFormValues, 'attack' | 'defense' | 'speed' | 'hp'> {
   const hp = randomInt(STAT_LIMITS.hp.min, STAT_LIMITS.hp.max);
   const hpPoints = Math.floor(hp / 3);

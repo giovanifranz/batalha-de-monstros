@@ -16,10 +16,6 @@ type Props = {
   hrefForPage: (page: number) => string;
 };
 
-/**
- * Janela de páginas: com poucas, mostra todas; com muitas, primeira, última e
- * as vizinhas da atual, com reticências no lugar do buraco.
- */
 function pageItems(page: number, totalPages: number): Array<number | 'ellipsis'> {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -37,15 +33,10 @@ function pageItems(page: number, totalPages: number): Array<number | 'ellipsis'>
   return items;
 }
 
-/** Clique com modificador ou do botão do meio: o `href` tem de valer, o handler sai da frente. */
 function isPlainClick(event: MouseEvent): boolean {
   return !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0);
 }
 
-/**
- * Os links têm `href` de verdade para teclado e "abrir em nova aba" funcionarem,
- * mas o clique comum é interceptado: quem navega é o nuqs, com `history: 'push'`.
- */
 export function MonsterPagination({ page, totalPages, onChange, hrefForPage }: Props) {
   if (totalPages <= 1) return null;
 

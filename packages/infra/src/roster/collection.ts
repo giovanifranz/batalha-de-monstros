@@ -1,134 +1,96 @@
 import { MonsterNotFoundError } from '@arena/domain/errors';
-import { monsterSchema, type Monster } from '@arena/domain/monster';
+import { monsterSchema, type Monster, type MonsterFormValues } from '@arena/domain/monster';
 import {
   createCollection,
   DeleteKeyNotFoundError,
-  localStorageCollectionOptions,
-  type StorageApi,
-  type StorageEventApi,
+  localOnlyCollectionOptions,
+  UpdateKeyNotFoundError,
 } from '@tanstack/db';
 
-const STORAGE_KEY = 'arena:roster';
-
 export type RosterCollectionOptions = {
-  storage?: StorageApi;
-  storageEventApi?: StorageEventApi;
+  initialData?: Monster[];
 };
 
-/**
- * O roster persistido no storage do navegador e sincronizado entre abas.
- * `createCollection` vem de `@tanstack/db`, NUNCA de `@tanstack/react-db` — é o
- * que mantém este pacote livre de React.
- *
- * LACUNA CONHECIDA: o carregamento inicial só confere se o JSON é serializável,
- * nunca roda `monsterSchema`. Uma linha gravada por um formato antigo volta com
- * campos `undefined` e o TypeScript segue achando que é um `Monster` completo.
- */
-export function createRosterCollection({
-  storage = window.localStorage,
-  storageEventApi = window,
-}: RosterCollectionOptions = {}) {
+export function createRosterCollection({ initialData }: RosterCollectionOptions = {}) {
   return createCollection(
-    localStorageCollectionOptions({
-      storageKey: STORAGE_KEY,
+    localOnlyCollectionOptions({
       getKey: (monster) => monster.id,
       schema: monsterSchema,
-      storage,
-      storageEventApi,
+      initialData,
     }),
   );
 }
 
 export type RosterCollection = ReturnType<typeof createRosterCollection>;
 
-/**
- * Tira as propriedades virtuais do TanStack DB (`$synced`, `$origin`, `$key`,
- * `$collectionId`) que `get`/`toArray` acrescentam à linha e que vazam em spread.
- */
 export function toMonster(row: Monster): Monster {
   const { id, name, attack, defense, speed, hp, imageUrl } = row;
+
   return { id, name, attack, defense, speed, hp, imageUrl };
 }
 
-/**
- * Fila de escrita por coleção: sem ela, duas escritas sem `await` entre si
- * correm juntas e a segunda grava o cache que a primeira poluiu ao falhar,
- * ressuscitando a mutação já relatada como erro a quem chamou.
- */
-const mutationQueues = new WeakMap<RosterCollection, Promise<unknown>>();
-
-function enqueueMutation<T>(roster: RosterCollection, task: () => Promise<T>): Promise<T> {
-  const tail = mutationQueues.get(roster) ?? Promise.resolve();
-  const settled = tail.then(task, task);
-  mutationQueues.set(roster, settled);
-
-  return settled;
-}
-
-/**
- * A biblioteca aplica a mutação ao seu cache ANTES de salvar e não desfaz isso
- * quando o `setItem` lança; `cleanup() + preload()` é o único par público que
- * descarta o resíduo sem recriar a coleção.
- *
- * EFEITO COLATERAL: reemite um evento de mudança para CADA linha, não só para a
- * que falhou — código que dependa da identidade do evento quebra, não é um bug.
- */
-async function resyncFromStorage(roster: RosterCollection): Promise<void> {
-  await roster.cleanup();
+export async function addMonster(roster: RosterCollection, monster: Monster): Promise<Monster> {
   await roster.preload();
+
+  const transaction = roster.insert(monster);
+  await transaction.isPersisted.promise;
+
+  return monster;
 }
 
-/**
- * Cadastra um monstro e só resolve depois de persistido. `preload()` primeiro:
- * sem ele a checagem de duplicata do `insert` olha um estado que ainda não
- * carregou o que já está gravado.
- */
-export function addMonster(roster: RosterCollection, monster: Monster): Promise<Monster> {
-  return enqueueMutation(roster, async () => {
-    await roster.preload();
+export async function updateMonster(
+  roster: RosterCollection,
+  monsterId: string,
+  values: MonsterFormValues,
+): Promise<Monster> {
+  await roster.preload();
 
-    const transaction = roster.insert(monster);
-    try {
-      await transaction.isPersisted.promise;
-    } catch (error) {
-      await resyncFromStorage(roster);
-      throw error;
+  const patch: MonsterFormValues = {
+    name: values.name,
+    attack: values.attack,
+    defense: values.defense,
+    speed: values.speed,
+    hp: values.hp,
+    imageUrl: values.imageUrl,
+  };
+
+  let transaction: ReturnType<RosterCollection['update']>;
+  try {
+    transaction = roster.update(monsterId, (draft) => {
+      Object.assign(draft, patch);
+    });
+  } catch (error) {
+    // Stryker disable next-line ConditionalExpression: `roster.update` lança outros erros (CollectionInErrorStateError) que a coleção em memória não consegue provocar.
+    if (error instanceof UpdateKeyNotFoundError) {
+      throw new MonsterNotFoundError(monsterId);
     }
 
-    return monster;
-  });
+    throw error;
+  }
+
+  await transaction.isPersisted.promise;
+
+  return { id: monsterId, ...patch };
 }
 
-/**
- * Tira um monstro do roster, traduzindo o `DeleteKeyNotFoundError` da
- * biblioteca para o `MonsterNotFoundError` do domínio.
- */
-export function removeMonster(roster: RosterCollection, monsterId: string): Promise<void> {
-  return enqueueMutation(roster, async () => {
-    await roster.preload();
+export async function removeMonster(roster: RosterCollection, monsterId: string): Promise<void> {
+  await roster.preload();
 
-    let transaction: ReturnType<RosterCollection['delete']>;
-    try {
-      transaction = roster.delete(monsterId);
-    } catch (error) {
-      // Stryker disable next-line ConditionalExpression: `roster.delete` lança outros erros (CollectionInErrorStateError) que o fake de storage não consegue provocar.
-      if (error instanceof DeleteKeyNotFoundError) {
-        throw new MonsterNotFoundError(monsterId);
-      }
-
-      throw error;
+  let transaction: ReturnType<RosterCollection['delete']>;
+  try {
+    transaction = roster.delete(monsterId);
+  } catch (error) {
+    // Stryker disable next-line ConditionalExpression: `roster.delete` lança outros erros (CollectionInErrorStateError) que a coleção em memória não consegue provocar.
+    if (error instanceof DeleteKeyNotFoundError) {
+      throw new MonsterNotFoundError(monsterId);
     }
 
-    try {
-      await transaction.isPersisted.promise;
-    } catch (error) {
-      await resyncFromStorage(roster);
-      throw error;
-    }
-  });
+    throw error;
+  }
+
+  await transaction.isPersisted.promise;
 }
 
-/** Busca pontual para quem não pode assinar a coleção. Ausente vira `MonsterNotFoundError`. */
 export async function findMonster(roster: RosterCollection, monsterId: string): Promise<Monster> {
   await roster.preload();
 
@@ -141,31 +103,18 @@ export async function findMonster(roster: RosterCollection, monsterId: string): 
   return toMonster(found);
 }
 
-/**
- * Semeia o roster na primeira execução — e só nela; devolve `false` também para
- * uma semente vazia. `preload()` é obrigatório: `size` é leitura síncrona do
- * estado em memória, e uma coleção nova sobre um storage já populado lê `0` e
- * semeia por cima do que existe.
- */
-export function seedIfEmpty(
+export async function seedIfEmpty(
   roster: RosterCollection,
   monsters: readonly Monster[],
 ): Promise<boolean> {
-  return enqueueMutation(roster, async () => {
-    await roster.preload();
+  await roster.preload();
 
-    if (roster.size > 0 || monsters.length === 0) {
-      return false;
-    }
+  if (roster.size > 0 || monsters.length === 0) {
+    return false;
+  }
 
-    const transaction = roster.insert(Array.from(monsters));
-    try {
-      await transaction.isPersisted.promise;
-    } catch (error) {
-      await resyncFromStorage(roster);
-      throw error;
-    }
+  const transaction = roster.insert(Array.from(monsters));
+  await transaction.isPersisted.promise;
 
-    return true;
-  });
+  return true;
 }

@@ -3,11 +3,6 @@ import { test } from './fixtures/arena.ts';
 import { BRONTOR, DUELO_DO_CADASTRO, ROSTER, SOMBRASTRO } from './fixtures/monsters.ts';
 import { cardDoMonstro, cardDoRoster } from './helpers/locators.ts';
 
-/**
- * O fluxo de cadastro, e o único cenário que NÃO pode semear o
- * monstro pelo `localStorage`: semear o resultado seria fingir o que está sendo
- * provado. Aqui se digita no formulário de verdade.
- */
 test('um monstro cadastrado pelo formulário entra no roster, já escalado, e vence a batalha', async ({
   page,
 }) => {
@@ -40,7 +35,6 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
   });
 
   await test.step('Então a regra de balanceamento aparece com quanto passou', async () => {
-    // 100 + 100 + 100 + ⌊300/3⌋ = 400, ou seja 150 acima do teto de 250.
     await expect(page.getByRole('status')).toContainText('150 pontos acima do limite');
     await expect(
       page
@@ -58,7 +52,6 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
   });
 
   await test.step('Então não sobra nenhum erro na tela', async () => {
-    // O orçamento fica exatamente no teto: 90 + 60 + 65 + ⌊105/3⌋ = 250.
     await expect(page.getByRole('status')).toContainText('Restam 0 pontos');
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
@@ -83,12 +76,9 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
   await test.step('Então ele vence, com os números que o algoritmo calculou', async () => {
     const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
-    // Nada de "Pular para o fim": o toast do cadastro nasce POR CIMA desse botão e
-    // o clique é bloqueado por interceptação de ponteiro. 9 golpes em 4x = 4125 ms.
     await expect(painel).toContainText(`${DUELO_DO_CADASTRO.vencedor} venceu a batalha!`, {
       timeout: 15_000,
     });
-    // Rounds · Golpes · Dano do Lutador 1 · Dano do Lutador 2.
     await expect(painel.getByRole('definition')).toHaveText([
       String(DUELO_DO_CADASTRO.rounds),
       String(DUELO_DO_CADASTRO.golpes),
@@ -97,18 +87,23 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
     ]);
   });
 
-  await test.step('E ele continua no roster depois de recarregar a página', async () => {
-    // `goto` e não navegação interna: num documento novo o monstro só reaparece se foi persistido.
-    await page.goto('/');
+  await test.step('E ele continua no roster enquanto a sessão dura', async () => {
+    await page.getByRole('link', { name: 'Roster' }).click();
 
     await expect(
       page.getByText(`${ROSTER.length + 1} monstros prontos para batalhar.`),
     ).toBeVisible();
 
-    // Ele é o último na ordem alfabética, então cai na página 2.
     await page.getByLabel('Buscar monstro por nome').fill(SOMBRASTRO.nome);
 
     await expect(cardDoRoster(page, SOMBRASTRO.nome)).toBeVisible();
     await expect(page.getByText(`Mostrando 1 de ${ROSTER.length + 1} monstros.`)).toBeVisible();
+  });
+
+  await test.step('E ele NÃO sobrevive a um documento novo, porque o roster é da sessão', async () => {
+    await page.goto('/');
+
+    await expect(page.getByText(`${ROSTER.length} monstros prontos para batalhar.`)).toBeVisible();
+    await expect(cardDoRoster(page, SOMBRASTRO.nome)).toHaveCount(0);
   });
 });

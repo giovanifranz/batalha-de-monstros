@@ -7,6 +7,7 @@ type Props = {
   skeletonCount?: number;
   selectedIds?: Partial<Record<'left' | 'right', string>>;
   onSelect?: (monster: Monster) => void;
+  onEdit?: (monster: Monster) => void;
   onRemove?: (monster: Monster) => void;
 };
 
@@ -15,6 +16,7 @@ export function MonsterGrid({
   skeletonCount = 0,
   selectedIds,
   onSelect,
+  onEdit,
   onRemove,
 }: Props) {
   return (
@@ -31,6 +33,7 @@ export function MonsterGrid({
                 : undefined
           }
           onSelect={onSelect}
+          onEdit={onEdit}
           onRemove={onRemove}
         />
       ))}

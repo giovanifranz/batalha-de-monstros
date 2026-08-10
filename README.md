@@ -2,7 +2,7 @@
 
 Cadastre monstros, escolha dois, assista à batalha e veja o resultado. Roda
 inteiro no navegador: **não há backend, não há API, não há variável de
-ambiente**. O roster mora no `localStorage` e a batalha é uma função pura.
+ambiente**. O roster mora na memória da aba e a batalha é uma função pura.
 
 O jogo tem três movimentos — cadastrar um monstro, montar uma batalha entre
 dois, ver o resultado aparecer sozinho ao fim — e um algoritmo de cinco regras
@@ -59,10 +59,10 @@ instalado do zero. O que a verificação mostrou e vale saber antes:
   continua sendo obrigatório — ele é o task runner, o linter, o formatador, o
   type-checker e o runner de testes.
 
-Na primeira execução o roster é semeado com quatro monstros (Ignaruk, Petragon,
-Umbrafel, Zefirion) para que a tela inicial não seja um estado vazio. Eles são
-dados normais: podem ser excluídos, e o estado vazio traz um botão para
-restaurá-los.
+Na primeira execução o roster é semeado com doze monstros (de Aurevanto a
+Zefirion) para que a tela inicial não seja um estado vazio — e já abra paginada,
+porque a listagem mostra oito por página. Eles são dados normais: podem ser
+editados, excluídos, e o estado vazio traz um botão para restaurá-los.
 
 ---
 
@@ -79,7 +79,7 @@ não é óbvia e já custou caro uma vez (veja a seção seguinte).
 | `vp test`                                 | 94 testes unitários — `packages/domain` (42), `packages/infra` (22), `apps/web` (30). **Não** roda a suíte de stories. |
 | `vp run test:stories`                     | 90 testes de story do `packages/ui` num Chromium real, com o addon de a11y em `test: 'error'`.                         |
 | `vp run ready`                            | `vp check` + `vp test` + `vp run test:stories` + `vp run -r build`, nessa ordem.                                       |
-| `vp -C apps/web run test:e2e`             | 33 cenários Playwright (BDD, sem rede).                                                                                |
+| `vp -C apps/web run test:e2e`             | 35 cenários Playwright (BDD, sem rede).                                                                                |
 | `vp -C apps/web run test:e2e:ui`          | Os mesmos, no modo UI, para depurar passo a passo.                                                                     |
 | `vp -C packages/domain run test:mutation` | Stryker sobre o motor de batalha e o schema (`break: 100`).                                                            |
 | `vp -C packages/infra run test:mutation`  | Stryker sobre a camada de persistência (`break: 100`).                                                                 |
@@ -129,6 +129,9 @@ Playwright e os dois Strykers. Elas rodam no CI (veja
 | Funcionalidade ou regra                                                      | Onde está                                                                                                              |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Cadastrar monstro com `name`, `attack`, `defense`, `speed`, `hp`, `imageUrl` | Rota `/monsters/new` (`apps/web/src/routes/monsters.new.tsx` + `components/MonsterForm.tsx`)                           |
+| Listar o roster, com busca e paginação                                       | Rota `/` (`apps/web/src/routes/index.tsx` + `hooks/useMonsterBrowser.ts`)                                              |
+| Editar um monstro já cadastrado                                              | Rota `/monsters/$monsterId/edit` (`apps/web/src/routes/monsters.$monsterId.edit.tsx`), o MESMO `MonsterForm`           |
+| Excluir um monstro, com confirmação                                          | Rota `/` — `AlertDialog` + `removeMonster` (`packages/infra/src/roster/collection.ts`)                                 |
 | Criar uma batalha entre dois monstros                                        | Rota `/battle` (`apps/web/src/routes/battle.index.tsx`), dois slots                                                    |
 | Ver o resultado automaticamente ao fim da batalha                            | `VictoryPanel` em `apps/web/src/components/VictoryPanel.tsx`, aberto pela máquina ao chegar em `finished` — sem clique |
 | Maior velocidade ataca primeiro                                              | `resolveFirstAttacker`, `packages/domain/src/battle.ts`                                                                |
@@ -218,87 +221,76 @@ objetivo deles), o motor de batalha não muda.
 
 ## Onde o dado mora
 
-Tudo no `localStorage` do navegador, em duas chaves:
+O roster mora em **memória**, e as preferências no `localStorage`:
 
-| Chave            | Conteúdo                                                   | Mecanismo                                         |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------- |
-| `arena:roster`   | A coleção de monstros                                      | `localStorageCollectionOptions` do `@tanstack/db` |
-| `arena:settings` | Duas preferências escalares: tema e velocidade de playback | `persist` do `@xstate/store`                      |
+| Onde             | Conteúdo                                                   | Mecanismo                                      |
+| ---------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| memória da aba   | A coleção de monstros                                      | `localOnlyCollectionOptions` do `@tanstack/db` |
+| `arena:settings` | Duas preferências escalares: tema e velocidade de playback | `persist` do `@xstate/store`                   |
 
-A coleção e as duas preferências escalares vivem no **mesmo mecanismo de
-armazenamento, em chaves separadas** — é divisão por natureza do dado (uma
-coleção consultada reativamente contra dois escalares lidos na inicialização),
-não deriva.
+A divisão é por natureza do dado: uma coleção consultada reativamente contra dois
+escalares lidos na inicialização.
 
-- **Limpar os dados do site apaga o roster.** Não há backup e não há exportação.
+- **O roster é da SESSÃO.** Recarregar a página recomeça pelos doze monstros de
+  exemplo: o que você cadastrou, editou ou excluiu não sobrevive a um F5. É uma
+  escolha deliberada — a coleção é `localOnly`, sem storage por baixo — e é o que
+  tira qualquer teto de tamanho do cadastro.
+- **O tema e a velocidade SOBREVIVEM**, porque essas duas ficam no `localStorage`.
 - **Nada sai do navegador.** Não há requisição de rede no código da aplicação. A
-  única exceção é o `image_url` que _você_ digita: o navegador vai buscar aquela
+  única exceção é o `imageUrl` que _você_ digita: o navegador vai buscar aquela
   imagem, como faria com qualquer `<img>`.
-- **Sincroniza entre abas.** Duas abas abertas: cadastre numa e ela aparece na
-  outra sem recarregar. É o evento `storage` nativo, de graça.
+- **Não sincroniza entre abas.** Cada aba tem o seu próprio roster, do zero.
 
-### O teto de ~5 MB
+### Não há teto de tamanho
 
-`localStorage` é síncrono e limitado a cerca de 5 MB por origem. Um roster
-digitado à mão não chega perto — a semente inteira, com arte, ocupa poucos KB.
-Mas `image_url` é texto livre, e **um `data:` URI colado pode ocupar centenas de
-KB sozinho**. Colar alguns estoura a cota.
+O `imageUrl` é texto livre, e um `data:` URI colado pode ocupar centenas de KB
+sozinho. Numa coleção persistida em `localStorage` — como esta era antes — alguns
+desses estouravam a cota de ~5 MB da origem e a gravação falhava. **Em memória
+não existe cota**, e é isso que o roster de sessão compra.
 
-Não há limite de tamanho no schema, e isso é uma decisão consciente: recusar uma
-URL legítima comprida seria pior que o problema. O que existe é tratamento: uma
-escrita que estoura a cota falha com mensagem na tela, não com tela branca
-(`apps/web/src/lib/storage-error.ts`, 5 testes), e o roster continua íntegro —
-a coleção resincroniza com o storage real antes de relançar, para que a próxima
-escrita bem-sucedida não arraste o resíduo da que falhou.
-
-Se isso incomodar, a correção é uma linha em `monsterFormSchema`: um
-`.max(N)` no `imageUrl`.
+O que sobra é um limite por documento: `imageUrl` tem `.max(1_000_000)` no
+`monsterFormSchema`, para um único monstro não carregar megabytes de base64 na
+memória da aba. O erro aparece no campo enquanto se digita, não num toast depois
+de salvar.
 
 ---
 
 ## Trocando o armazenamento
 
-Trocar o armazenamento sem tocar em mais nada não é aqui uma promessa ilustrada
-por um bloco de código de exemplo: **as duas implementações existem e as duas
-rodam em todo `vp test`.**
-
-O seam é um **parâmetro**, não uma classe:
+Hoje não há nenhum: `createRosterCollection` devolve uma
+`localOnlyCollectionOptions` do `@tanstack/db`, que guarda tudo em memória. O
+único parâmetro é o elenco inicial:
 
 ```ts
 // packages/infra/src/roster/collection.ts
-export function createRosterCollection({
-  storage = window.localStorage,
-  storageEventApi = window,
-}: RosterCollectionOptions = {}) { … }
+export function createRosterCollection({ initialData }: RosterCollectionOptions = {}) {
+  return createCollection(
+    localOnlyCollectionOptions({
+      getKey: (monster) => monster.id,
+      schema: monsterSchema,
+      initialData,
+    }),
+  );
+}
 ```
 
-- O navegador não passa nada e recebe o `localStorage` e o `window` reais
-  (`apps/web/src/db/roster.ts`).
-- Os testes passam um fake em memória (`packages/infra/src/roster/collection.test.ts`,
-  22 testes) — é por isso que a camada de persistência roda em ambiente Node,
-  sem jsdom e sem browser.
+O que isso compra: a camada de persistência roda em ambiente **Node**, sem jsdom
+e sem navegador, e os testes não precisam de fake nenhum — a coleção real É o
+fake. São 22 testes em `packages/infra/src/roster/collection.test.ts`, com 100%
+de score de mutação.
 
-Trocar para `sessionStorage`, para um storage criptografado ou para um mock de
-teste é passar outro objeto com a forma da `Storage` API. Nenhum outro arquivo
-muda, e a checagem é literal:
+Voltar a persistir é trocar `localOnlyCollectionOptions` por outra fábrica de
+opções do `@tanstack/db` (`localStorageCollectionOptions`, ou um adaptador de
+IndexedDB) DENTRO dessa função. Nenhum consumidor muda: o resto do app conhece só
+`addMonster`, `updateMonster`, `removeMonster`, `findMonster` e `seedIfEmpty`, e a
+checagem é literal — nenhum arquivo fora deste importa `@tanstack/db`:
 
 ```console
-$ grep -rn "window.localStorage" packages/ --include='*.ts' --include='*.tsx'
-packages/infra/src/roster/collection.ts:47:  storage = window.localStorage,
+$ grep -rln "@tanstack/db" packages/ --include='*.ts'
+packages/infra/src/roster/collection.ts
 ```
 
-Uma linha, que é o default do parâmetro acima. (Um `grep` por `localStorage`
-solto devolve quatro linhas do mesmo arquivo, mas três delas são o nome
-`localStorageCollectionOptions` — o import, um comentário e a chamada. O
-acoplamento real ao objeto do navegador é a linha 47 e só ela.)
-
-O teste de sincronização entre abas usa isso de forma mais interessante ainda:
-dois fakes compartilhando o mesmo `storageEventApi`, escrita num, leitura no
-outro — a funcionalidade de duas abas provada sem abrir duas abas.
-
----
-
-## Estrutura do monorepo
+# Estrutura do monorepo
 
 ```
 apps/
@@ -337,12 +329,15 @@ Toda dependência entra como `catalog:`, com a versão declarada uma única vez 
 - **O motor indexa por lado (`left`/`right`), não por id.** A batalha não precisa
   saber quem são os monstros para reproduzir o log; `BattleResult` carrega
   `startHp` e é autossuficiente.
-- **TanStack DB com `localStorageCollectionOptions`** — seção própria acima.
-- **A criação da coleção é síncrona.** `localStorage` é síncrono, então não há
-  banco assíncrono para esperar: nada de top-level await, nada de shell de
-  carregamento, nada de primeira frame em branco. O único `await` da aplicação é
-  um `preload()` no `main.tsx`, e ele existe para a primeira frame já sair com o
-  roster no grid.
+- **TanStack DB com `localOnlyCollectionOptions`** — seção própria acima. O roster
+  é da sessão: recarregar recomeça pelos exemplos. O que se compra com isso é
+  ausência de cota (nenhum `data:` URI colado estoura nada), zero dependência de
+  persistência e uma camada testável em Node sem fake nenhum. O que se paga está
+  em [Limitações conhecidas](#limitações-conhecidas), e é o preço alto da lista.
+- **A criação da coleção é síncrona.** Sem storage não há banco assíncrono para
+  esperar: nada de top-level await, nada de shell de carregamento, nada de
+  primeira frame em branco. O único `await` da aplicação é um `preload()` no
+  `main.tsx`, e ele existe para a primeira frame já sair com a semente no grid.
 - **XState para fluxo, `@xstate/store` para dado.** A máquina de batalha e a de
   seleção têm estados; tema e velocidade são dois escalares e não merecem uma
   máquina. Cuidado registrado: o `@xstate/store` v4 **substitui o contexto
@@ -381,10 +376,10 @@ a outra.
 | E2E (BDD)        | Playwright             | O usuário consegue completar o fluxo?        | `apps/web`               | 33      |
 
 ```bash
-vp test                                     # 94 unitários
-vp run test:stories                         # 90 stories, Chromium real
+vp test                                     # 99 unitários
+vp run test:stories                         # 95 stories, Chromium real
 vp run vrt                                  # 90 PNGs contra a baseline
-vp -C apps/web run test:e2e                 # 33 cenários
+vp -C apps/web run test:e2e                 # 35 cenários
 vp -C packages/domain run test:mutation     # 100,00%
 vp -C packages/infra  run test:mutation     # 100,00%
 ```
@@ -398,11 +393,12 @@ do Playwright virar a narrativa do teste.
 Detalhes que valem a pena saber:
 
 - **O E2E não faz uma única requisição de rede.** A semente entra por
-  `page.addInitScript` gravando `arena:roster` antes de qualquer script da
-  página, e a arte é `data:image/svg+xml`. Mas **o cenário de cadastro dirige a
+  `page.addInitScript` gravando `arena:seed` antes de qualquer script da página,
+  e a arte é `data:image/svg+xml`. Como semear só acontece em coleção vazia,
+  recarregar não ressuscita o que o cenário excluiu — não há guarda a manter. Mas **o cenário de cadastro dirige a
   UI de verdade** com um helper `registrarMonstro(page, dados)` — cadastrar é
   justamente o que aquele teste existe para provar, e fingi-lo seria trapaça.
-- **20 dos 33 cenários são gerados por modelo.** `getShortestPaths` do
+- **20 dos 35 cenários são gerados por modelo.** `getShortestPaths` do
   `@xstate/graph` percorre a `battleSetupMachine` e produz um caminho por estado
   alcançável; mais dois testes falham se algum estado ou algum evento do modelo
   ficar sem asserção na suíte. Caminho que ninguém pensou em escrever ainda é
@@ -518,8 +514,8 @@ espera o primeiro e um de publicação que só roda depois dos quatro:
 
 | Job         | O que roda                                                        | Quando                                |
 | ----------- | ----------------------------------------------------------------- | ------------------------------------- |
-| `ready`     | `vp run ready` (check + 94 unitários + 90 stories + build)        | todo push/PR                          |
-| `e2e`       | os 33 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
+| `ready`     | `vp run ready` (check + 99 unitários + 95 stories + build)        | todo push/PR                          |
+| `e2e`       | os 35 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
 | `mutation`  | os dois Strykers, com os relatórios como artefato                 | todo push/PR                          |
 | `visual`    | `vp run vrt` — 90 PNGs contra a baseline, relatório como artefato | todo push/PR                          |
 | `sonarqube` | análise estática na SonarCloud, sobre o lcov que o `ready` gerou  | depois do `ready`                     |
@@ -630,7 +626,7 @@ não sobe browser).
 
 Ela **não** cobre `.tsx` nem `packages/ui`, e isso está declarado em
 `sonar.coverage.exclusions` em vez de ficar implícito: componente React é
-verificado pelas 90 stories e pelos 33 cenários Playwright, e nenhuma das duas
+verificado pelas 95 stories e pelos 35 cenários Playwright, e nenhuma das duas
 suítes emite lcov. Sem a exclusão o Sonar contaria esses arquivos como 0% e a
 métrica passaria a medir a fronteira da suíte unitária, não a qualidade do
 código. É a mesma linha de
@@ -788,16 +784,19 @@ Nenhuma destas é surpresa; todas estão anotadas no código também.
   (não-texto, contra a cor adjacente), não um parâmetro a mais no helper
   existente. Não foi fechada.
 
-- **Dado gravado por uma versão anterior não é validado na leitura.** O
-  carregamento inicial da coleção confere só que o JSON é serializável. Uma
-  linha em formato antigo volta com campos `undefined` enquanto o TypeScript
-  continua achando que é um `Monster` completo. Anotado em `collection.ts`.
-- **Uma escrita que falha faz a coleção resincronizar inteira.** O
-  `cleanup() + preload()` reemite um evento de mudança para cada linha, não só
-  para a que falhou. O estado final está correto; o que quebra é código que
-  dependa da identidade do evento. Anotado em `collection.ts`.
-- **~5 MB de `localStorage`**, e `image_url` é texto livre. Veja
-  [O teto de ~5 MB](#o-teto-de-5-mb).
+- **O ROSTER NÃO SOBREVIVE A UM RECARREGAMENTO.** Esta é a limitação de maior
+  impacto do projeto, e é deliberada: a coleção é `localOnly`, mora em memória, e
+  um F5 recomeça pelos doze monstros de exemplo. Cadastrar, editar e excluir
+  valem só enquanto a aba estiver aberta. Consequências em cadeia:
+  - Um link `/battle/<id>/<id>` de monstro cadastrado por você quebra em qualquer
+    aba nova — os ids da semente são fixos, os seus não.
+  - Duas abas têm dois rosters independentes; não há sincronização.
+  - O tema e a velocidade de playback continuam persistindo (`arena:settings`),
+    então o app parece guardar coisas — e guarda, só não o roster.
+- **A semente pode ser trocada por uma chave do `localStorage`.** O
+  `arena:seed` é lido no boot atrás de `import.meta.env.DEV` e existe para o
+  Playwright montar o elenco de um cenário. O branch sai do bundle de produção
+  pelo tree-shaking, mas está no repositório.
 - **A imagem publica estáticos, e só.** Não há preview por PR, CDN, domínio nem
   TLS configurados aqui: o `Dockerfile` entrega um nginx servindo o `dist` numa
   porta, e o resto é de quem hospeda. Veja [Docker — o app](#docker--o-app).

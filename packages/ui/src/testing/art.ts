@@ -1,4 +1,3 @@
-/** Arte inline para fixtures: nenhuma story depende de uma imagem de terceiro estar no ar. */
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

@@ -3,11 +3,8 @@ import { test } from './fixtures/arena.ts';
 import { AUROX, BRONTOR, ROSTER } from './fixtures/monsters.ts';
 import { cardDoRoster, cardsVisiveis } from './helpers/locators.ts';
 
-/** Repetido de propósito: importar a constante deixaria as duas pontas concordando com o valor errado. */
-const POR_PAGINA = 6;
+const POR_PAGINA = 8;
 
-/** Alcançado pelo texto porque não tem papel nem nome acessível; escopado porque o
- *  "Limpar busca" de dentro dele divide o nome acessível com o X do campo de busca. */
 function cardDeAviso(page: Parameters<typeof cardDoRoster>[0], texto: string) {
   return page.locator('[data-slot="card"]').filter({ hasText: texto });
 }
@@ -30,13 +27,12 @@ test.describe('a lista de monstros', () => {
     await test.step('Então vejo o resto do elenco, e a URL carrega a página', async () => {
       await expect(page).toHaveURL(/[?&]page=2\b/);
       await expect(cardsVisiveis(page)).toHaveCount(ROSTER.length - POR_PAGINA);
-      await expect(cardDoRoster(page, 'Hydrivo')).toBeVisible();
-      await expect(cardDoRoster(page, 'Ignivor')).toBeVisible();
+      await expect(cardDoRoster(page, 'Jelmoro')).toBeVisible();
+      await expect(cardDoRoster(page, 'Kraveln')).toBeVisible();
       await expect(cardDoRoster(page, AUROX.name)).toHaveCount(0);
     });
 
     await test.step('E o voltar do navegador me devolve para a página 1', async () => {
-      // A paginação escreve com `history: 'push'` justamente para isto.
       await page.goBack();
 
       await expect(cardsVisiveis(page)).toHaveCount(POR_PAGINA);
@@ -75,7 +71,6 @@ test.describe('a busca por nome', () => {
       await expect(cardsVisiveis(page)).toHaveCount(1);
       await expect(cardDoRoster(page, BRONTOR.name)).toBeVisible();
       await expect(page.getByText(`Mostrando 1 de ${ROSTER.length} monstros.`)).toBeVisible();
-      // A escrita na URL é debounced em 300 ms; o `expect` já espera por ela.
       await expect(page).toHaveURL(new RegExp(`[?&]q=${BRONTOR.name}\\b`));
     });
 
@@ -115,7 +110,7 @@ test.describe('a busca por nome', () => {
 test.describe('excluir um monstro', () => {
   test.use({ roster: [AUROX.name, BRONTOR.name] });
 
-  test('pede confirmação, pode ser cancelado e não volta ao recarregar', async ({ page }) => {
+  test('pede confirmação, pode ser cancelado e não volta ao trocar de tela', async ({ page }) => {
     await test.step('Dado um roster com dois monstros', async () => {
       await page.goto('/');
 
@@ -145,8 +140,9 @@ test.describe('excluir um monstro', () => {
       await expect(page.getByText('1 monstro pronto para batalhar.')).toBeVisible();
     });
 
-    await test.step('E ele não ressuscita ao recarregar', async () => {
-      await page.reload();
+    await test.step('E ele não volta ao navegar para outra tela e voltar', async () => {
+      await page.getByRole('link', { name: 'Novo monstro' }).click();
+      await page.goBack();
 
       await expect(cardsVisiveis(page)).toHaveCount(1);
       await expect(cardDoRoster(page, AUROX.name)).toBeVisible();
@@ -156,8 +152,6 @@ test.describe('excluir um monstro', () => {
 });
 
 test.describe('o roster vazio', () => {
-  // Um monstro só: o `seedIfEmpty` do boot planta os exemplos em qualquer coleção
-  // que comece vazia, então excluir é o único caminho até o estado vazio.
   test.use({ roster: [AUROX.name] });
 
   test('explica o vazio e traz os exemplos de volta', async ({ page }) => {
@@ -184,13 +178,15 @@ test.describe('o roster vazio', () => {
       await page.getByRole('button', { name: 'Restaurar exemplos' }).click();
     });
 
-    await test.step('Então os quatro monstros de exemplo do app aparecem', async () => {
+    await test.step('Então os doze monstros de exemplo do app aparecem, paginados', async () => {
       await expect(page.getByText('Monstros de exemplo restaurados.')).toBeVisible();
-      await expect(page.getByText('4 monstros prontos para batalhar.')).toBeVisible();
+      await expect(page.getByText('12 monstros prontos para batalhar.')).toBeVisible();
 
-      for (const nome of ['Ignaruk', 'Petragon', 'Umbrafel', 'Zefirion']) {
-        await expect(cardDoRoster(page, nome)).toBeVisible();
-      }
+      await expect(cardsVisiveis(page)).toHaveCount(POR_PAGINA);
+      await expect(page.getByRole('navigation', { name: 'pagination' })).toBeVisible();
+
+      await expect(cardDoRoster(page, 'Aurevanto')).toBeVisible();
+      await expect(cardDoRoster(page, 'Zefirion')).toHaveCount(0);
     });
   });
 });

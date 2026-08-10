@@ -46,7 +46,6 @@ export const Default: Story = {
     </Pagination>
   ),
   play: async ({ canvas }) => {
-    // `isActive` é a única prop que liga `aria-current="page"`.
     await expect(canvas.getByRole('link', { name: '2' })).toHaveAttribute('aria-current', 'page');
     await expect(canvas.getByRole('link', { name: '1' })).not.toHaveAttribute('aria-current');
   },

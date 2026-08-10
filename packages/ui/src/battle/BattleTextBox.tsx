@@ -26,7 +26,6 @@ function buildMessage({ fighters, turn, beat, status, winnerName }: Props): stri
 
   if (beat === 'announce') return `${attacker} atacou!`;
   if (turn.defenderHpAfter === 0) return `${defender} foi derrotado!`;
-  // Mostra a regra do dano mínimo acontecendo, em vez de escondê-la.
   if (turn.isChip) return `A defesa de ${defender} segurou! Só ${turn.damage} de dano.`;
   return `${defender} perdeu ${turn.damage} de HP!`;
 }

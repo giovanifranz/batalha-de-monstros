@@ -10,11 +10,6 @@ import { useState } from 'react';
 import { BattleArena } from '@/components/BattleArena.tsx';
 
 export const Route = createFileRoute('/battle/$leftId/$rightId')({
-  /**
-   * `findMonster`, e não um `roster.get(id)` cru: se o `preload()` do boot
-   * falhar, uma leitura crua veria `size: 0` e declararia TODO monstro
-   * inexistente. Sequencial porque as duas chamadas competem pelo mesmo `preload()`.
-   */
   loader: async ({ context, params }) => {
     const left = await findMonster(context.roster, params.leftId);
     const right = await findMonster(context.roster, params.rightId);
@@ -55,11 +50,8 @@ export const Route = createFileRoute('/battle/$leftId/$rightId')({
 function BattlePage() {
   const { left, right } = Route.useLoaderData();
 
-  // "Rever" incrementa isto; junto com os ids, forma a `key` que remonta a arena.
   const [runId, setRunId] = useState(0);
 
-  // Todos os rounds de uma vez, antes de qualquer pixel na tela: a animação
-  // reproduz um log já fechado, então pular para o fim não recalcula nada.
   const result = simulateBattle(left, right);
 
   return (
@@ -73,9 +65,6 @@ function BattlePage() {
           round.
         </p>
       </header>
-
-      {/* `JSON.stringify` e não interpolação com hífen: o alfabeto do `nanoid`
-          INCLUI `-`, então `a-b` + `c` e `a` + `b-c` colidiriam. */}
       <BattleArena
         key={JSON.stringify([left.id, right.id, runId])}
         left={left}

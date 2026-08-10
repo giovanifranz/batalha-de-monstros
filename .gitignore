@@ -34,6 +34,7 @@ dist-ssr
 
 # gerado pelo TanStack Router
 apps/web/src/routeTree.gen.ts
+apps/web/.tanstack/
 
 # scratch directory (superpowers process)
 .superpowers/

@@ -1,14 +1,67 @@
-import type { Monster } from '@arena/domain/monster';
+import { monsterSchema, type Monster } from '@arena/domain/monster';
 import { seedIfEmpty, type RosterCollection } from '@arena/infra/roster/collection';
+import { z } from 'zod';
 
-/**
- * Arte inline: a semente vai inteira para o `localStorage` (teto de ~5 MB) e
- * nenhum card pode depender de um host de terceiro. `encodeURIComponent` e não
- * base64 porque o resultado passa no `z.url()` do `monsterSchema`.
- */
+type SeedStorage = Pick<Storage, 'getItem'>;
+
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
+
+function creatureArt(fundo: string, corpo: string, olho: string, silhueta: string): string {
+  return svgDataUri(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+      `<rect width="64" height="64" fill="${fundo}"/>` +
+      `<path d="${silhueta}" fill="${corpo}"/>` +
+      `<circle cx="26" cy="32" r="3.5" fill="${olho}"/>` +
+      `<circle cx="38" cy="32" r="3.5" fill="${olho}"/>` +
+      '</svg>',
+  );
+}
+
+const AUREVANTO_ART = creatureArt(
+  '#b8860b',
+  '#ffe08a',
+  '#3a2a05',
+  'M32 8l10 14h10l-8 12 6 18H16l6-18-8-12h10z',
+);
+const BRUMALGO_ART = creatureArt(
+  '#3f4b5b',
+  '#c4d3e4',
+  '#1b2129',
+  'M32 12c14 0 20 10 20 20s-6 20-20 20-20-10-20-20 6-20 20-20z',
+);
+const CRAVENOR_ART = creatureArt('#7a1f2b', '#ff9aa2', '#2b0409', 'M32 6l22 20-10 32H20L10 26z');
+const DRAKONIR_ART = creatureArt(
+  '#1f5c3a',
+  '#9df0bf',
+  '#062114',
+  'M32 10c12 4 20 12 20 22 0 12-9 20-20 20s-20-8-20-20c0-10 8-18 20-22z',
+);
+const FENRISCO_ART = creatureArt(
+  '#8a4a12',
+  '#ffcf9a',
+  '#2a1403',
+  'M14 20l10-8 8 8 8-8 10 8v22a10 10 0 0 1-10 10H24a10 10 0 0 1-10-10z',
+);
+const GELIDRON_ART = creatureArt(
+  '#215a70',
+  '#bfeaf7',
+  '#062a36',
+  'M32 6l8 14 14-2-6 14 6 14-14-2-8 14-8-14-14 2 6-14-6-14 14 2z',
+);
+const HIDRARGO_ART = creatureArt(
+  '#15616d',
+  '#8ee6d5',
+  '#04262b',
+  'M32 8c10 10 18 18 18 28a18 18 0 0 1-36 0c0-10 8-18 18-28z',
+);
+const LUMAVOR_ART = creatureArt(
+  '#5b2a86',
+  '#e6c8ff',
+  '#1d0a2e',
+  'M32 8l6 16 16-4-10 14 10 14-16-4-6 16-6-16-16 4 10-14-10-14 16 4z',
+);
 
 const IGNARUK_ART = svgDataUri(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
@@ -49,16 +102,73 @@ const ZEFIRION_ART = svgDataUri(
     '</svg>',
 );
 
-/**
- * Os números não são decorativos: todos precisam passar pelo `monsterSchema`
- * (orçamento `attack + defense + speed + ⌊hp/3⌋ ≤ 250` — gastam 250, 232, 246 e
- * 250), senão o `seedIfEmpty` do boot lança e o app não sobe. E o duelo padrão
- * (os dois primeiros por nome) abre no dano mínimo de propósito: Petragon é 1
- * de velocidade mais rápido que Ignaruk e esbarra na defesa dele.
- */
+/** Todos respeitam o orçamento `attack + defense + speed + ⌊hp/3⌋ ≤ 250` do `monsterSchema`. */
 export const SEED_MONSTERS: readonly Monster[] = [
   {
-    id: 'seed-ignaruk',
+    id: 'fbf7c1e0-5448-448f-9c63-de6ad2de75ff',
+    name: 'Aurevanto',
+    hp: 100,
+    attack: 88,
+    defense: 40,
+    speed: 80,
+    imageUrl: AUREVANTO_ART,
+  },
+  {
+    id: '1d0c5b07-b951-43ab-a062-47ae51db8031',
+    name: 'Brumalgo',
+    hp: 180,
+    attack: 35,
+    defense: 62,
+    speed: 45,
+    imageUrl: BRUMALGO_ART,
+  },
+  {
+    id: 'd1f5d0e8-63d8-4462-a071-3d85ddf9aaae',
+    name: 'Cravenor',
+    hp: 110,
+    attack: 95,
+    defense: 30,
+    speed: 70,
+    imageUrl: CRAVENOR_ART,
+  },
+  {
+    id: '509bab17-8f40-4730-8aa9-2a8b877581ee',
+    name: 'Drakonir',
+    hp: 150,
+    attack: 80,
+    defense: 55,
+    speed: 60,
+    imageUrl: DRAKONIR_ART,
+  },
+  {
+    id: 'd08bed8c-1318-453a-a5f8-903460c25d01',
+    name: 'Fenrisco',
+    hp: 120,
+    attack: 72,
+    defense: 48,
+    speed: 88,
+    imageUrl: FENRISCO_ART,
+  },
+  {
+    id: '18c33a5e-d5db-4bd9-95f5-dad6b5890f18',
+    name: 'Gelidron',
+    hp: 200,
+    attack: 50,
+    defense: 90,
+    speed: 25,
+    imageUrl: GELIDRON_ART,
+  },
+  {
+    id: 'e3ea33b6-0cba-441d-87a5-eee02f69ad85',
+    name: 'Hidrargo',
+    hp: 135,
+    attack: 66,
+    defense: 52,
+    speed: 74,
+    imageUrl: HIDRARGO_ART,
+  },
+  {
+    id: '165478d7-3a02-49ec-a7b2-17e1948ece78',
     name: 'Ignaruk',
     hp: 105,
     attack: 88,
@@ -67,7 +177,16 @@ export const SEED_MONSTERS: readonly Monster[] = [
     imageUrl: IGNARUK_ART,
   },
   {
-    id: 'seed-petragon',
+    id: 'cb0ba100-77c0-4b53-acc5-53494b96d07c',
+    name: 'Lumavor',
+    hp: 100,
+    attack: 90,
+    defense: 30,
+    speed: 90,
+    imageUrl: LUMAVOR_ART,
+  },
+  {
+    id: '0410b728-ccf7-4d70-b9c0-460589dbcad4',
     name: 'Petragon',
     hp: 150,
     attack: 48,
@@ -76,7 +195,7 @@ export const SEED_MONSTERS: readonly Monster[] = [
     imageUrl: PETRAGON_ART,
   },
   {
-    id: 'seed-umbrafel',
+    id: '7a7448f4-1625-4d52-ba7c-e2d4fe1d1f11',
     name: 'Umbrafel',
     hp: 140,
     attack: 76,
@@ -85,7 +204,7 @@ export const SEED_MONSTERS: readonly Monster[] = [
     imageUrl: UMBRAFEL_ART,
   },
   {
-    id: 'seed-zefirion',
+    id: 'f1616620-bee6-460a-88cb-3de11393e34a',
     name: 'Zefirion',
     hp: 100,
     attack: 92,
@@ -95,11 +214,45 @@ export const SEED_MONSTERS: readonly Monster[] = [
   },
 ];
 
-/**
- * Semeia os exemplos e devolve `true` se realmente semeou. Mora aqui, e não em
- * `roster.ts`, para uma página poder importar isto sem arrastar o singleton que
- * lê `window` na importação.
- */
-export function seedRoster(target: RosterCollection): Promise<boolean> {
+export const SEED_OVERRIDE_KEY = 'arena:seed';
+
+const seedOverrideSchema = z.array(monsterSchema);
+
+export function readSeedOverride(storage: SeedStorage): readonly Monster[] | null {
+  if (!import.meta.env.DEV) {
+    return null;
+  }
+
+  const raw = storage.getItem(SEED_OVERRIDE_KEY);
+
+  if (raw === null) {
+    return null;
+  }
+
+  try {
+    const parsed = seedOverrideSchema.safeParse(JSON.parse(raw));
+
+    if (!parsed.success || parsed.data.length === 0) {
+      console.warn(`Semente em ${SEED_OVERRIDE_KEY} ignorada: não é uma lista de monstros válida.`);
+
+      return null;
+    }
+
+    return parsed.data;
+  } catch {
+    console.warn(`Semente em ${SEED_OVERRIDE_KEY} ignorada: JSON inválido.`);
+
+    return null;
+  }
+}
+
+export function seedRoster(
+  target: RosterCollection,
+  storage: SeedStorage = window.localStorage,
+): Promise<boolean> {
+  return seedIfEmpty(target, readSeedOverride(storage) ?? SEED_MONSTERS);
+}
+
+export function seedExamples(target: RosterCollection): Promise<boolean> {
   return seedIfEmpty(target, SEED_MONSTERS);
 }

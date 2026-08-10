@@ -50,7 +50,6 @@ export const OpenAndClose: Story = {
   play: async ({ canvas, userEvent, canvasElement }) => {
     await userEvent.click(canvas.getByRole('button', { name: /excluir conta/i }));
 
-    // O conteúdo vai por Portal direto no document.body, fora da árvore de `canvas`.
     const body = within(canvasElement.ownerDocument.body);
     await expect(await body.findByRole('alertdialog')).toBeVisible();
 

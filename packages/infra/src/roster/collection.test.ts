@@ -1,6 +1,5 @@
 import { MonsterNotFoundError } from '@arena/domain/errors';
 import type { Monster } from '@arena/domain/monster';
-import { type StorageApi, type StorageEventApi } from '@tanstack/db';
 import { describe, expect, it } from 'vitest';
 import {
   addMonster,
@@ -8,11 +7,17 @@ import {
   findMonster,
   removeMonster,
   seedIfEmpty,
+  toMonster,
+  updateMonster,
 } from './collection.ts';
+
+const GOLEM_ID = '11111111-1111-4111-8111-111111111111';
+const WISP_ID = '22222222-2222-4222-8222-222222222222';
+const AUSENTE_ID = '33333333-3333-4333-8333-333333333333';
 
 function aMonster(overrides: Partial<Monster> = {}): Monster {
   return {
-    id: 'golem',
+    id: GOLEM_ID,
     name: 'Golem',
     attack: 50,
     defense: 30,
@@ -23,97 +28,62 @@ function aMonster(overrides: Partial<Monster> = {}): Monster {
   };
 }
 
-/**
- * Fakes que se comportam como duas abas do mesmo navegador: escrever no `Map`
- * dispara os ouvintes do fake de eventos. `failNextWrite` faz o próximo
- * `setItem` lançar, simulando cota estourada.
- */
-function createFakeBrowserStorage(): {
-  storage: StorageApi;
-  storageEventApi: StorageEventApi;
-  failNextWrite(error: Error): void;
-} {
-  const store = new Map<string, string>();
-  const listeners = new Set<(event: StorageEvent) => void>();
-  let pendingFailure: Error | null = null;
-
-  function notify(key: string, oldValue: string | null, newValue: string | null): void {
-    const event = { key, oldValue, newValue, storageArea: storage } as StorageEvent;
-    listeners.forEach((listener) => listener(event));
-  }
-
-  const storage: StorageApi = {
-    getItem: (key) => store.get(key) ?? null,
-    setItem: (key, value) => {
-      if (pendingFailure) {
-        const error = pendingFailure;
-        pendingFailure = null;
-        throw error;
-      }
-
-      const oldValue = store.get(key) ?? null;
-      store.set(key, value);
-      notify(key, oldValue, value);
-    },
-    removeItem: (key) => {
-      const oldValue = store.get(key) ?? null;
-      store.delete(key);
-      notify(key, oldValue, null);
-    },
-  };
-
-  const storageEventApi: StorageEventApi = {
-    addEventListener: (_type, listener) => {
-      listeners.add(listener);
-    },
-    removeEventListener: (_type, listener) => {
-      listeners.delete(listener);
-    },
-  };
-
-  return {
-    storage,
-    storageEventApi,
-    failNextWrite: (error) => {
-      pendingFailure = error;
-    },
-  };
-}
-
-function openRoster() {
-  return createRosterCollection(createFakeBrowserStorage());
+function formValuesOf({ id: _id, ...values }: Monster) {
+  return values;
 }
 
 describe('roster', () => {
   it('guarda o monstro cadastrado', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
 
     // Act
     await addMonster(roster, aMonster());
 
     // Assert
-    expect(roster.get('golem')).toMatchObject({ name: 'Golem', hp: 200 });
+    expect(roster.get(GOLEM_ID)).toMatchObject({ name: 'Golem', hp: 200 });
+  });
+
+  it('nasce com o elenco inicial recebido', async () => {
+    // Arrange
+    const roster = createRosterCollection({ initialData: [aMonster()] });
+
+    // Act
+    await roster.preload();
+
+    // Assert
+    expect(roster.size).toBe(1);
+  });
+
+  it('nasce vazio quando nenhum elenco inicial é passado', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+
+    // Act
+    await roster.preload();
+
+    // Assert
+    expect(roster.size).toBe(0);
   });
 
   it('tira do roster o monstro removido', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
     await addMonster(roster, aMonster());
 
     // Act
-    await removeMonster(roster, 'golem');
+    await removeMonster(roster, GOLEM_ID);
 
     // Assert
-    expect(roster.has('golem')).toBe(false);
+    expect(roster.has(GOLEM_ID)).toBe(false);
   });
 
   it('lança MonsterNotFoundError ao remover um id que não existe no roster', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
 
     // Act
-    const removal = removeMonster(roster, 'inexistente');
+    const removal = removeMonster(roster, AUSENTE_ID);
 
     // Assert
     await expect(removal).rejects.toThrow(MonsterNotFoundError);
@@ -121,11 +91,11 @@ describe('roster', () => {
 
   it('encontra pelo id o monstro cadastrado', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
     await addMonster(roster, aMonster());
 
     // Act
-    const found = await findMonster(roster, 'golem');
+    const found = await findMonster(roster, GOLEM_ID);
 
     // Assert
     expect(found).toEqual(aMonster());
@@ -133,54 +103,99 @@ describe('roster', () => {
 
   it('lança MonsterNotFoundError quando o id não existe no roster', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
 
     // Act
-    const search = findMonster(roster, 'inexistente');
+    const search = findMonster(roster, AUSENTE_ID);
 
     // Assert
     await expect(search).rejects.toThrow(MonsterNotFoundError);
   });
 
+  it('devolve o monstro sem as propriedades virtuais da coleção', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+
+    // Act
+    const found = await findMonster(roster, GOLEM_ID);
+
+    // Assert
+    expect(Object.keys(found).sort()).toEqual([
+      'attack',
+      'defense',
+      'hp',
+      'id',
+      'imageUrl',
+      'name',
+      'speed',
+    ]);
+  });
+
+  it('tira as propriedades virtuais de uma linha lida direto da coleção', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+    const row = roster.get(GOLEM_ID);
+
+    // Act
+    const limpo = toMonster(row!);
+
+    // Assert
+    expect(limpo).toEqual(aMonster());
+  });
+
   it('rejeita ao cadastrar um monstro que estoura o orçamento de 250 pontos', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
     const overBudget = aMonster({ attack: 100, defense: 100, speed: 100, hp: 300 });
 
     // Act
     const insertion = addMonster(roster, overBudget);
 
     // Assert
-    // A mensagem, não só a classe: distingue o schema do domínio de outro que rejeite pelo motivo errado.
     await expect(insertion).rejects.toThrow(/não pode ultrapassar 250 pontos/);
+  });
+
+  it('rejeita ao cadastrar um monstro cujo id não é um UUID', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+
+    // Act
+    const insertion = addMonster(roster, aMonster({ id: 'golem' }));
+
+    // Assert
+    await expect(insertion).rejects.toThrow();
   });
 
   it('semeia o roster vazio com os monstros recebidos', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
 
     // Act
-    const seeded = await seedIfEmpty(roster, [aMonster(), aMonster({ id: 'wisp', name: 'Wisp' })]);
+    const seeded = await seedIfEmpty(roster, [aMonster(), aMonster({ id: WISP_ID, name: 'Wisp' })]);
 
     // Assert
     expect(seeded).toBe(true);
+    expect(roster.size).toBe(2);
   });
 
   it('não semeia quando o roster já tem monstro', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
     await addMonster(roster, aMonster());
 
     // Act
-    const seeded = await seedIfEmpty(roster, [aMonster({ id: 'wisp', name: 'Wisp' })]);
+    const seeded = await seedIfEmpty(roster, [aMonster({ id: WISP_ID, name: 'Wisp' })]);
 
     // Assert
     expect(seeded).toBe(false);
+    expect(roster.has(WISP_ID)).toBe(false);
   });
 
   it('não semeia quando a lista de monstros recebida está vazia', async () => {
     // Arrange
-    const roster = openRoster();
+    const roster = createRosterCollection();
 
     // Act
     const seeded = await seedIfEmpty(roster, []);
@@ -188,198 +203,115 @@ describe('roster', () => {
     // Assert
     expect(seeded).toBe(false);
   });
+});
 
-  it('não semeia de novo ao reabrir a coleção sobre um storage já populado', async () => {
+describe('roster editado', () => {
+  it('atualiza os atributos do monstro editado', async () => {
     // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const firstRun = createRosterCollection(fakeBrowser);
-    await seedIfEmpty(firstRun, [aMonster()]);
-    const secondRun = createRosterCollection(fakeBrowser);
-
-    // Act
-    const seeded = await seedIfEmpty(secondRun, [aMonster()]);
-
-    // Assert
-    expect(seeded).toBe(false);
-  });
-
-  it('grava sob a chave de storage estável esperada pelo resto da aplicação', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-
-    // Act
-    await seedIfEmpty(roster, [aMonster()]);
-
-    // Assert
-    expect(fakeBrowser.storage.getItem('arena:roster')).not.toBeNull();
-  });
-
-  it('encontra o monstro cadastrado numa coleção reaberta sobre o mesmo storage', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const firstRun = createRosterCollection(fakeBrowser);
-    await addMonster(firstRun, aMonster());
-    const secondRun = createRosterCollection(fakeBrowser);
-
-    // Act
-    const found = await findMonster(secondRun, 'golem');
-
-    // Assert
-    expect(found).toEqual(aMonster());
-  });
-
-  it('remove o monstro cadastrado numa coleção reaberta sobre o mesmo storage', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const firstRun = createRosterCollection(fakeBrowser);
-    await addMonster(firstRun, aMonster());
-    const secondRun = createRosterCollection(fakeBrowser);
-    const witness = createRosterCollection(fakeBrowser);
-    await witness.preload();
-
-    // Act
-    await removeMonster(secondRun, 'golem');
-
-    // Assert
-    expect(witness.has('golem')).toBe(false);
-  });
-
-  it('guarda o monstro cadastrado numa coleção reaberta ao lado do que já existia', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const firstRun = createRosterCollection(fakeBrowser);
-    await addMonster(firstRun, aMonster());
-    const secondRun = createRosterCollection(fakeBrowser);
-
-    // Act
-    await addMonster(secondRun, aMonster({ id: 'wisp', name: 'Wisp' }));
-
-    // Assert
-    expect(secondRun.size).toBe(2);
-  });
-
-  it('rejeita ao cadastrar quando a escrita no storage falha', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
-
-    // Act
-    const insertion = addMonster(roster, aMonster());
-
-    // Assert
-    await expect(insertion).rejects.toThrow('QuotaExceededError');
-  });
-
-  it('rejeita ao remover quando a escrita no storage falha', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
+    const roster = createRosterCollection();
     await addMonster(roster, aMonster());
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
 
     // Act
-    const removal = removeMonster(roster, 'golem');
+    await updateMonster(
+      roster,
+      GOLEM_ID,
+      formValuesOf(aMonster({ name: 'Golem II', attack: 60, hp: 210 })),
+    );
 
     // Assert
-    await expect(removal).rejects.toThrow('QuotaExceededError');
+    expect(roster.get(GOLEM_ID)).toMatchObject({ name: 'Golem II', attack: 60, hp: 210 });
   });
 
-  it('rejeita ao semear quando a escrita no storage falha', async () => {
+  it('devolve o monstro atualizado com o id preservado', async () => {
     // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
-
-    // Act
-    const seeding = seedIfEmpty(roster, [aMonster()]);
-
-    // Assert
-    await expect(seeding).rejects.toThrow('QuotaExceededError');
-  });
-
-  it('não deixa a próxima escrita bem-sucedida ressuscitar um monstro cuja gravação falhou', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-    const reopened = createRosterCollection(fakeBrowser);
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
-    await addMonster(roster, aMonster()).catch(() => undefined);
-
-    // Act
-    await addMonster(roster, aMonster({ id: 'wisp', name: 'Wisp' }));
-
-    // Assert
-    await reopened.preload();
-    expect(reopened.has('golem')).toBe(false);
-  });
-
-  it('não deixa uma escrita bem-sucedida ressuscitar um monstro cuja remoção falhou', async () => {
-    // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-    const reopened = createRosterCollection(fakeBrowser);
+    const roster = createRosterCollection();
     await addMonster(roster, aMonster());
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
-    await removeMonster(roster, 'golem').catch(() => undefined);
 
     // Act
-    await addMonster(roster, aMonster({ id: 'wisp', name: 'Wisp' }));
+    const atualizado = await updateMonster(
+      roster,
+      GOLEM_ID,
+      formValuesOf(aMonster({ name: 'Golem II' })),
+    );
 
     // Assert
-    await reopened.preload();
-    expect(reopened.has('golem')).toBe(true);
+    expect(atualizado).toEqual(aMonster({ name: 'Golem II' }));
   });
 
-  it('não deixa uma escrita bem-sucedida plantar a semente cuja gravação falhou', async () => {
+  it('não troca o número de monstros ao editar', async () => {
     // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-    const reopened = createRosterCollection(fakeBrowser);
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
-    await seedIfEmpty(roster, [aMonster()]).catch(() => undefined);
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+    await addMonster(roster, aMonster({ id: WISP_ID, name: 'Wisp' }));
 
     // Act
-    await addMonster(roster, aMonster({ id: 'wisp', name: 'Wisp' }));
+    await updateMonster(roster, GOLEM_ID, formValuesOf(aMonster({ name: 'Golem II' })));
 
     // Assert
-    await reopened.preload();
-    expect(reopened.has('golem')).toBe(false);
+    expect(roster.size).toBe(2);
   });
 
-  it('não deixa uma escrita concorrente bem-sucedida ressuscitar o monstro cuja escrita concorrente falhou', async () => {
+  it('não mexe nos outros monstros ao editar um', async () => {
     // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const roster = createRosterCollection(fakeBrowser);
-    const reopened = createRosterCollection(fakeBrowser);
-    fakeBrowser.failNextWrite(new Error('QuotaExceededError'));
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+    await addMonster(roster, aMonster({ id: WISP_ID, name: 'Wisp' }));
 
     // Act
-    // Sem `await` entre as duas: é o entrelaçamento que o caso sequencial não cobre.
-    const [golem, wisp] = await Promise.allSettled([
-      addMonster(roster, aMonster()),
-      addMonster(roster, aMonster({ id: 'wisp', name: 'Wisp' })),
-    ]);
+    await updateMonster(roster, GOLEM_ID, formValuesOf(aMonster({ name: 'Golem II' })));
 
     // Assert
-    expect(golem.status).toBe('rejected');
-    expect(wisp.status).toBe('fulfilled');
-    await reopened.preload();
-    expect(reopened.has('golem')).toBe(false);
+    expect(roster.get(WISP_ID)).toMatchObject({ name: 'Wisp' });
   });
 
-  it('propaga para uma coleção o monstro cadastrado em outra que compartilha o mesmo storage', async () => {
+  it('lança MonsterNotFoundError ao editar um id que não existe no roster', async () => {
     // Arrange
-    const fakeBrowser = createFakeBrowserStorage();
-    const tabA = createRosterCollection(fakeBrowser);
-    const tabB = createRosterCollection(fakeBrowser);
-    await tabB.preload();
+    const roster = createRosterCollection();
 
     // Act
-    await addMonster(tabA, aMonster());
+    const edicao = updateMonster(roster, AUSENTE_ID, formValuesOf(aMonster()));
 
     // Assert
-    expect(tabB.get('golem')).toMatchObject({ name: 'Golem' });
+    await expect(edicao).rejects.toThrow(MonsterNotFoundError);
+  });
+
+  it('rejeita ao editar um monstro para além do orçamento de 250 pontos', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+
+    // Act
+    const edicao = updateMonster(
+      roster,
+      GOLEM_ID,
+      formValuesOf(aMonster({ attack: 100, defense: 100, speed: 100, hp: 300 })),
+    );
+
+    // Assert
+    await expect(edicao).rejects.toThrow(/não pode ultrapassar 250 pontos/);
+  });
+
+  it('apara o nome ao editar', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+
+    // Act
+    await updateMonster(roster, GOLEM_ID, formValuesOf(aMonster({ name: '  Golem II  ' })));
+
+    // Assert
+    expect(roster.get(GOLEM_ID)).toMatchObject({ name: 'Golem II' });
+  });
+
+  it('resolve sem mudar nada quando a edição não altera atributo nenhum', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    await addMonster(roster, aMonster());
+
+    // Act
+    const atualizado = await updateMonster(roster, GOLEM_ID, formValuesOf(aMonster()));
+
+    // Assert
+    expect(atualizado).toEqual(aMonster());
   });
 });

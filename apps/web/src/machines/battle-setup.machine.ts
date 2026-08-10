@@ -4,10 +4,8 @@ import { produce } from 'immer';
 import { assertEvent, assign, setup } from 'xstate';
 
 type Context = {
-  /** O Monster inteiro, não só o id: o selecionado pode sair da página atual do grid. */
   left: Monster | null;
   right: Monster | null;
-  /** Slot que o próximo clique preenche. */
   activeSlot: Side;
 };
 
@@ -22,10 +20,6 @@ export const battleSetupMachine = setup({
   types: { context: {} as Context, events: {} as Events },
 
   actions: {
-    /**
-     * Clicar num monstro já escalado o remove; caso contrário ele entra no slot
-     * ativo e a vez passa para o outro.
-     */
     togglePick: assign(({ context, event }) => {
       assertEvent(event, 'fighter.picked');
       const { monster } = event;
@@ -67,7 +61,6 @@ export const battleSetupMachine = setup({
   id: 'battleSetup',
   context: EMPTY,
 
-  // Os eventos mudam o contexto na raiz; as transições `always` reconciliam o modo.
   on: {
     'fighter.picked': { actions: ['togglePick'] },
     'sides.swapped': { actions: ['swapSides'] },
@@ -89,7 +82,6 @@ export const battleSetupMachine = setup({
       ],
     },
     ready: {
-      // A UI habilita "Lutar!" por `snapshot.matches('ready')`, não por um `Boolean(left && right)` na view.
       tags: ['can-fight'],
       always: [
         { guard: 'hasNoFighter', target: 'empty' },

@@ -3,7 +3,6 @@ import { test } from './fixtures/arena.ts';
 import { AUROX, BRONTOR, DUELO, DUELO_ESPELHADO } from './fixtures/monsters.ts';
 import { cardDoMonstro } from './helpers/locators.ts';
 
-/** O fluxo central do jogo: montar o duelo e ver o resultado aparecer AUTOMATICAMENTE. */
 test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', async ({
   page,
 }) => {
@@ -34,8 +33,6 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
   await test.step('Então, sem eu tocar em mais nada, o vencedor aparece ao fim da reprodução', async () => {
     const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
-    // 7 golpes em 4x = (1200 + 7 × 1700) / 4 = 3275 ms. Timeout explícito com folga,
-    // para não inflar o global de todas as outras asserções da suíte.
     await expect(painel).toBeVisible({ timeout: 15_000 });
     await expect(painel).toContainText(`${DUELO.vencedor} venceu a batalha!`);
   });
@@ -45,7 +42,6 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
       .getByRole('region', { name: 'Resultado da batalha: vencedor' })
       .getByRole('definition');
 
-    // Rounds · Golpes · Dano do Lutador 1 · Dano do Lutador 2, nessa ordem.
     await expect(numeros).toHaveText([
       String(DUELO.rounds),
       String(DUELO.golpes),
@@ -63,8 +59,6 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
   });
 
   await test.step('E o HP dos dois lados bate com o log, não com a largura da barra', async () => {
-    // `aria-valuenow` e nunca a largura em pixels: a barra ainda está animando em
-    // 4x enquanto o numeral já mostra o valor final.
     await expect(page.getByRole('progressbar', { name: `HP de ${AUROX.name}` })).toHaveAttribute(
       'aria-valuenow',
       String(DUELO.hpFinalDoAurox),
@@ -76,18 +70,11 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
   });
 
   await test.step('E existe exatamente um botão de rever a batalha', async () => {
-    // Um contador, e não um `toBeVisible`: o "Pular para o fim" já virou "Rever
-    // batalha" no mesmo nó do DOM uma vez.
     await expect(page.getByRole('button', { name: 'Rever batalha' })).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Pular para o fim' })).toHaveCount(0);
   });
 });
 
-/**
- * O MESMO par com os lados trocados: é o único cenário da suíte em que o vencedor
- * e o primeiro atacante caem no Lutador 2, e portanto o único em que o NOME
- * anunciado depende de o painel ler o resultado do domínio.
- */
 test('com os lados trocados, quem vence e quem começa passam a ser o Lutador 2', async ({
   page,
 }) => {
@@ -102,7 +89,6 @@ test('com os lados trocados, quem vence e quem começa passam a ser o Lutador 2'
   await test.step('Então o painel coroa o monstro da DIREITA', async () => {
     const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
-    // 7 golpes em 4x = (1200 + 7 × 1700) / 4 = 3275 ms; timeout com folga.
     await expect(painel).toContainText(`${DUELO_ESPELHADO.vencedor} venceu a batalha!`, {
       timeout: 15_000,
     });
@@ -118,7 +104,6 @@ test('com os lados trocados, quem vence e quem começa passam a ser o Lutador 2'
   });
 
   await test.step('E o resumo espelha os números do duelo original', async () => {
-    // Rounds · Golpes · Dano do Lutador 1 (Brontor) · Dano do Lutador 2 (Aurox).
     await expect(
       page.getByRole('region', { name: 'Resultado da batalha: vencedor' }).getByRole('definition'),
     ).toHaveText([
@@ -140,7 +125,6 @@ test('com os lados trocados, quem vence e quem começa passam a ser o Lutador 2'
 });
 
 test.describe('em velocidade 1x', () => {
-  // O ponto do cenário é justamente a duração de 13,1s que o "Pular" corta.
   test.use({ speed: 1 });
 
   test('pular para o fim entrega o mesmo resultado da reprodução inteira', async ({ page }) => {
@@ -151,7 +135,6 @@ test.describe('em velocidade 1x', () => {
         'aria-checked',
         'true',
       );
-      // A reprodução ainda está no começo: ninguém perdeu HP.
       await expect(
         page.getByRole('progressbar', { name: `HP de ${BRONTOR.name}` }),
       ).toHaveAttribute('aria-valuenow', String(BRONTOR.hp));
@@ -186,8 +169,6 @@ test('um duelo com um monstro que não está no roster mostra a batalha indispon
   });
 
   await test.step('Então a tela explica o problema e oferece o caminho de volta', async () => {
-    // O `errorComponent` da rota é um `Alert` — `role="alert"`, sem heading —,
-    // e o texto vem da tradução de `MonsterNotFoundError` feita lá.
     const alerta = page.getByRole('alert');
 
     await expect(alerta).toContainText('Batalha indisponível');

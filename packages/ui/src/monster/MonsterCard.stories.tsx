@@ -20,11 +20,6 @@ export const Padrao: Story = {
   args: { monster: pyrelisk },
 };
 
-/**
- * O HOVER do botão de excluir, medido — nenhuma outra guarda pega isso, porque o
- * axe nunca passa o mouse. A asserção é sobre o NÚMERO lido do pixel composto,
- * não sobre classe nem sobre cor.
- */
 export const ComBotaoRemoverEmHover: Story = {
   args: { monster: duskfang, onRemove: () => {} },
   play: async ({ canvas }) => {
@@ -34,15 +29,10 @@ export const ComBotaoRemoverEmHover: Story = {
   },
 };
 
-/**
- * O mesmo hover no tema claro, onde o defeito era pior. O preview roda em `dark`
- * por padrão, então sem `globals` esta medição nunca chegaria ao outro tema.
- */
 export const ComBotaoRemoverEmHoverNoClaro: Story = {
   globals: { theme: 'light' },
   args: { monster: duskfang, onRemove: () => {} },
   play: async ({ canvas }) => {
-    // Guarda contra teste vazio: um `globals` ignorado faria esta story medir o escuro de novo.
     await expect(document.documentElement.classList.contains('dark')).toBe(false);
 
     const botao = canvas.getByRole('button', { name: `Excluir ${duskfang.name}` });
@@ -54,7 +44,42 @@ export const ComBotaoRemoverEmHoverNoClaro: Story = {
 export const ComBotaoRemover: Story = {
   args: { monster: duskfang, onRemove: () => {} },
   play: async ({ canvas }) => {
-    // O nome ACESSÍVEL carrega o dono; o visível continua sendo prefixo dele (2.5.3).
+    await expect(canvas.getByRole('button', { name: `Excluir ${duskfang.name}` })).toBeVisible();
+  },
+};
+
+export const ComBotaoEditar: Story = {
+  args: { monster: duskfang, onEdit: () => {} },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: `Editar ${duskfang.name}` })).toBeVisible();
+  },
+};
+
+export const ComBotaoEditarEmHover: Story = {
+  args: { monster: duskfang, onEdit: () => {} },
+  play: async ({ canvas }) => {
+    const botao = canvas.getByRole('button', { name: `Editar ${duskfang.name}` });
+
+    await expect(textContrast(botao, { pseudo: ':hover' })).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  },
+};
+
+export const ComBotaoEditarEmHoverNoClaro: Story = {
+  globals: { theme: 'light' },
+  args: { monster: duskfang, onEdit: () => {} },
+  play: async ({ canvas }) => {
+    await expect(document.documentElement.classList.contains('dark')).toBe(false);
+
+    const botao = canvas.getByRole('button', { name: `Editar ${duskfang.name}` });
+
+    await expect(textContrast(botao, { pseudo: ':hover' })).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  },
+};
+
+export const ComAmbasAsAcoes: Story = {
+  args: { monster: duskfang, onEdit: () => {}, onRemove: () => {} },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: `Editar ${duskfang.name}` })).toBeVisible();
     await expect(canvas.getByRole('button', { name: `Excluir ${duskfang.name}` })).toBeVisible();
   },
 };
@@ -62,7 +87,6 @@ export const ComBotaoRemover: Story = {
 export const Selecionavel: Story = {
   args: { monster: aquashell, onSelect: () => {} },
   play: async ({ canvas }) => {
-    // `interactive` vira true assim que `onSelect` existe.
     await expect(canvas.getByRole('button')).toHaveAttribute('aria-pressed', 'false');
   },
 };
@@ -75,7 +99,21 @@ export const SelecionadoComoLutador1: Story = {
   },
 };
 
-// `image_url` é texto livre: link quebrado é o caso comum, não a exceção.
+export const BadgeDoSlotNaoEhCortada: Story = {
+  args: { monster: pyrelisk, onSelect: () => {}, selectedAs: 'left' },
+  play: async ({ canvas, canvasElement }) => {
+    const badge = canvas.getByText('Lutador 1');
+    const card = canvasElement.querySelector('[data-slot="card"]');
+
+    const badgeRect = badge.getBoundingClientRect();
+    const cardRect = card!.getBoundingClientRect();
+
+    await expect(badgeRect.height).toBeGreaterThan(0);
+    await expect(badgeRect.top).toBeLessThan(cardRect.top);
+    await expect(getComputedStyle(card!).overflow).toBe('visible');
+  },
+};
+
 export const ArteQuebrada: Story = {
   args: { monster: { ...pyrelisk, imageUrl: 'data:image/png;base64,quebrada' } },
   play: async ({ canvasElement }) => {
@@ -85,7 +123,6 @@ export const ArteQuebrada: Story = {
   },
 };
 
-// O nome precisa truncar em vez de estourar o card.
 export const NomeLongo: Story = {
   args: { monster: { ...pyrelisk, name: 'Nome Extremamente Longo Para Testar Truncamento' } },
 };
