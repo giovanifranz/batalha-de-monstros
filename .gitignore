@@ -54,3 +54,7 @@ apps/web/test-results
 # relatórios do stryker (teste de mutação)
 reports/
 .stryker-tmp/
+
+# lcov do `vp test --coverage`, consumido pelo job `sonarqube` do CI
+coverage/
+.scannerwork/
