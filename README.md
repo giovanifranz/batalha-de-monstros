@@ -513,20 +513,22 @@ Duas fronteiras, para não serem descobertas do jeito difícil:
 
 ## Integração contínua
 
-`.github/workflows/ci.yml`. Quatro jobs de teste em paralelo e um de publicação
-que só roda depois deles:
+`.github/workflows/ci.yml`. Quatro jobs de teste em paralelo, um de análise que
+espera o primeiro e um de publicação que só roda depois dos quatro:
 
-| Job        | O que roda                                                        | Quando                                |
-| ---------- | ----------------------------------------------------------------- | ------------------------------------- |
-| `ready`    | `vp run ready` (check + 94 unitários + 90 stories + build)        | todo push/PR                          |
-| `e2e`      | os 33 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
-| `mutation` | os dois Strykers, com os relatórios como artefato                 | todo push/PR                          |
-| `visual`   | `vp run vrt` — 90 PNGs contra a baseline, relatório como artefato | todo push/PR                          |
-| `publish`  | build do Storybook + upload para o GitHub Pages                   | só `main`, e só se os quatro passarem |
+| Job         | O que roda                                                        | Quando                                |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------- |
+| `ready`     | `vp run ready` (check + 94 unitários + 90 stories + build)        | todo push/PR                          |
+| `e2e`       | os 33 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
+| `mutation`  | os dois Strykers, com os relatórios como artefato                 | todo push/PR                          |
+| `visual`    | `vp run vrt` — 90 PNGs contra a baseline, relatório como artefato | todo push/PR                          |
+| `sonarqube` | análise estática na SonarCloud, sobre o lcov que o `ready` gerou  | depois do `ready`                     |
+| `publish`   | build do Storybook + upload para o GitHub Pages                   | só `main`, e só se os quatro passarem |
 
 O `publish` declara `needs: [ready, e2e, mutation, visual]` e uma condição de
 branch. Deploy verde a partir de build vermelho é pior que deploy nenhum, e um
-PR não publica.
+PR não publica. O `sonarqube` ainda **não** entra nesse `needs` — o porquê está
+em [SonarQube Cloud](#sonarqube-cloud).
 
 Cinco coisas que o workflow resolve e que um clone novo não resolve sozinho:
 
@@ -578,6 +580,63 @@ shell promovia a código do passo. Esse passo não existe mais: quem entrega o
 O que continua **não verificado** é a montagem do runner com `container:` — o
 `--user root`, o `--with-deps` e as actions do Pages rodando dentro da imagem.
 Os comandos em si são os mesmos verificados à mão neste ambiente.
+
+### SonarQube Cloud
+
+O job `sonarqube` roda o scanner da SonarCloud sobre o monorepo inteiro. A
+configuração fica em `sonar-project.properties`, na raiz — um arquivo por
+pacote faria quatro projetos separados lá, e este monorepo é um só.
+
+**Um passo é manual, uma vez por repositório**: em _Settings › Secrets and
+variables › Actions_, criar o secret **`SONAR_TOKEN`** com o token gerado em _My
+Account › Security_ na SonarCloud. Sem ele o scanner morre em
+`You're not authorized to analyze this project` — que é autenticação faltando,
+não erro do `sonar-project.properties`.
+
+Quatro decisões que não são o padrão da tela de onboarding:
+
+- **É o único job sem `container:`.** Ele não roda `vp`: o scanner baixa o Sonar
+  Scanner CLI, confere a assinatura GPG e usa o JRE embutido nele. A cobertura
+  chega pronta, pelo artefato que o `ready` sobe — daí o `needs: [ready]`. Pôr a
+  imagem do Vite+ aqui só acrescentaria dependências que a análise não usa.
+- **`fetch-depth: 0` no checkout.** O scanner usa o histórico do git para
+  atribuir cada linha a um commit e a uma data, e é daí que sai a fronteira
+  entre "código novo" e "código legado". Num clone raso todo arquivo parece ter
+  nascido no último commit, e o portão de código novo passa a julgar o projeto
+  inteiro a cada push.
+- **Fonte e teste separados por padrão, não por diretório.** Os testes moram ao
+  lado do código (`monster.ts` e `monster.test.ts` na mesma pasta), então
+  `sonar.sources` e `sonar.tests` apontam os dois para a raiz e quem separa é
+  `sonar.test.inclusions`. Sem essa separação o scanner morre em
+  `File can't be indexed twice`; e com tudo classificado como fonte o relatório
+  encheria de falso positivo, porque regra de fonte cobra complexidade e
+  duplicação onde regra de teste cobraria asserção faltando e `.only` esquecido.
+- **`sonar.qualitygate.wait=true`, mas `sonarqube` fora do `needs` do
+  `publish`.** Sem o `wait` a ação apenas ENVIA a análise e sai em verde
+  independentemente do veredito — o job existiria sem nunca poder reprovar nada.
+  Já o `needs` fica para depois da primeira análise de `main`: enquanto a
+  SonarCloud não tem linha de base, o portão trata o repositório inteiro como
+  código novo, e bloquear o deploy nisso seria bloquear por falta de histórico,
+  não por regressão.
+
+A ação está fixada por **SHA** (`7006c449…`, que é a `v8.1.0`), e não por tag:
+tag em repositório de terceiro é ponteiro móvel, e é este passo que recebe o
+`SONAR_TOKEN`.
+
+A cobertura enviada é o `coverage/lcov.info` do `vp test --coverage` — os mesmos
+unitários que o `vp run ready` acabou de rodar, executados de novo dentro do
+`ready` só para escrever o relatório (menos de um segundo; o `vp test` da raiz
+não sobe browser).
+
+Ela **não** cobre `.tsx` nem `packages/ui`, e isso está declarado em
+`sonar.coverage.exclusions` em vez de ficar implícito: componente React é
+verificado pelas 90 stories e pelos 33 cenários Playwright, e nenhuma das duas
+suítes emite lcov. Sem a exclusão o Sonar contaria esses arquivos como 0% e a
+métrica passaria a medir a fronteira da suíte unitária, não a qualidade do
+código. É a mesma linha de
+[Como as regras são provadas](#como-as-regras-são-provadas): cobertura de linha
+diz que a linha rodou — o número que vale aqui continua sendo o score de
+mutação.
 
 ---
 

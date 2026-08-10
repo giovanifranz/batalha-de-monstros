@@ -34,6 +34,22 @@ jobs:
 
       - run: vp run ready
 
+      # O lcov que o job `sonarqube` consome. São os mesmos unitários que o
+      # `vp run ready` acabou de rodar, de novo e só para escrever o relatório —
+      # custa menos de um segundo, porque o `vp test` da raiz não sobe browser.
+      #
+      # Fica AQUI, e não no job do scanner, porque quem sabe rodar `vp` é este
+      # container. O scanner roda num runner limpo (ver o job `sonarqube`) e
+      # recebe o arquivo por artefato.
+      - name: Cobertura dos unitários
+        run: vp test --coverage --coverage.reporter=lcov
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 7
+
   e2e:
     name: playwright (33 cenários)
     runs-on: ubuntu-latest
@@ -128,6 +144,61 @@ jobs:
         with:
           path: packages/ui/.vrt/baseline
           key: vrt-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+
+  sonarqube:
+    name: sonarqube cloud (análise estática + cobertura)
+    needs: [ready]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # SEM `container:`, ao contrário dos outros jobs. Este é o único que não
+    # roda `vp`: o scanner traz o próprio toolchain (baixa o Sonar Scanner CLI,
+    # confere a assinatura GPG e usa o JRE embutido nele), e a cobertura chega
+    # pronta pelo artefato do `ready`. Pôr a imagem do Vite+ aqui só
+    # acrescentaria dependências que a análise não usa.
+    steps:
+      # PRÉ-REQUISITO, uma vez por repositório: Settings › Secrets and variables
+      # › Actions › `SONAR_TOKEN`, com o token gerado em My Account › Security na
+      # SonarCloud. Sem ele o scanner morre em "You're not authorized to analyze
+      # this project" — não é erro de configuração do sonar-project.properties.
+      #
+      # `fetch-depth: 0` NÃO é excesso de zelo: o scanner usa o histórico do git
+      # para atribuir cada linha a um commit e a uma data, e é isso que separa
+      # "código novo" de "código legado". Num clone raso todo arquivo parece ter
+      # nascido no último commit, e o portão de código novo passa a julgar o
+      # projeto inteiro a cada push.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage
+
+      # A ação lê `sonar-project.properties` da raiz — escopo, classificação
+      # fonte/teste e o caminho do lcov estão todos lá.
+      #
+      # Fixada por SHA, e não por tag: tag em repositório de terceiro é ponteiro
+      # móvel, e este passo recebe o `SONAR_TOKEN`. O comentário ao lado diz a
+      # qual release o SHA corresponde.
+      #
+      # `qualitygate.wait=true` porque sem ele a ação só ENVIA a análise e sai
+      # em verde independentemente do resultado: o job existiria sem nunca poder
+      # reprovar nada. Com ele, o job espera o veredito e falha junto com o
+      # portão.
+      #
+      # DE PROPÓSITO fora do `needs` do `publish`, por ora: na primeira análise
+      # de um projeto novo a SonarCloud ainda não tem linha de base, então o
+      # portão julga o repositório inteiro como "código novo". Depois que a
+      # primeira análise de `main` fixar a base, `sonarqube` entra no `needs`
+      # junto com os outros quatro.
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.qualitygate.wait=true
 
   publish:
     name: publicar o Storybook no GitHub Pages
