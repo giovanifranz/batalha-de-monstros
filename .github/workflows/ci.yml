@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  # Só a branch padrão dispara por push. As demais entram pelo `pull_request`.
+  #
+  # Sem essa restrição, um PR aberto de uma branch DO PRÓPRIO repositório
+  # dispara os dois eventos, com refs diferentes (`refs/heads/<branch>` e
+  # `refs/pull/<n>/merge`), o que dá dois grupos de `concurrency` distintos e
+  # portanto o dobro de jobs por push — nenhum deles cancelando o outro.
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Leitura só, por padrão. O job de publicação eleva o que precisa, no escopo
+# dele.
+permissions:
+  contents: read
+
+jobs:
+  # `vp run ready` = vp check + vp test + a suíte de stories + build.
+  # É o mesmo comando que o README manda rodar antes de abrir PR.
+  ready:
+    name: check + unitários + stories + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-vite-plus
+
+      # A suíte de stories roda num Chromium DE VERDADE (Storybook + Vitest
+      # browser mode). Sem este passo ela falha no clone novo — é exatamente a
+      # lacuna que este workflow existe para fechar.
+      - name: Chromium do Playwright
+        run: vp -C packages/ui exec playwright install --with-deps chromium
+
+      # `vp run ready` começa pelo `vp check`, e o check type-checa
+      # `apps/web/src/routeTree.gen.ts` — um artefato do TanStack Router que
+      # está no .gitignore e portanto NÃO existe num checkout novo. Sem este
+      # passo o job morre em 9 erros de tipo que descendem todos dessa
+      # ausência. Medido num clone limpo, não deduzido.
+      - name: Gerar a árvore de rotas
+        run: vp -C apps/web build
+
+      - run: vp run ready
+
+  e2e:
+    name: playwright (33 cenários)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-vite-plus
+
+      - name: Chromium do Playwright
+        run: vp -C apps/web exec playwright install --with-deps chromium
+
+      # A config sobe o dev server sozinha (`webServer`), na porta 5174, e o
+      # dev server gera a árvore de rotas na subida.
+      - run: vp -C apps/web run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  mutation:
+    name: stryker (domain + infra)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-vite-plus
+
+      # Os dois pacotes rodam com `break: 100`: um mutante sobrevivente
+      # derruba o job. Não precisam de browser nem da árvore de rotas.
+      - run: vp -C packages/domain run test:mutation
+      - run: vp -C packages/infra run test:mutation
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: mutation-reports
+          path: |
+            packages/domain/reports/mutation
+            packages/infra/reports/mutation
+          retention-days: 7
+
+  visual:
+    name: regressão visual (90 stories)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-vite-plus
+
+      # A captura roda no Chromium que o Playwright fixa — o mesmo binário da
+      # suíte de stories e do e2e, e o único cuja versão está no lockfile.
+      - name: Chromium do Playwright
+        run: vp -C packages/ui exec playwright install --with-deps chromium
+
+      # A baseline NÃO é versionada: o mesmo Storybook renderiza pixels
+      # diferentes em cada sistema operacional, então uma imagem no repositório
+      # valeria só na máquina que a gerou. Quem a guarda entre execuções é este
+      # cache. `restore-keys` casa por prefixo e devolve a entrada mais recente,
+      # então um PR compara com o último estado aprovado da branch padrão.
+      #
+      # Sistema e ARQUITETURA entram na chave: a rasterização de fonte muda com
+      # os dois, e uma baseline de outra arquitetura reprovaria as 90 imagens
+      # sem nenhuma delas ter mudado.
+      - name: Restaurar a baseline visual
+        id: baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: packages/ui/.vrt/baseline
+          key: vrt-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: |
+            vrt-baseline-${{ runner.os }}-${{ runner.arch }}-
+
+      # Sem baseline não há o que comparar, e o job passaria em VERDE sem ter
+      # verificado nada. Isso é aceitável só na primeira execução — e precisa
+      # aparecer.
+      - name: Avisar quando não existe baseline
+        if: ${{ steps.baseline.outputs.cache-matched-key == '' }}
+        run: echo "::warning::sem baseline no cache — esta execução apenas grava a primeira, nada foi comparado"
+
+      - run: vp run vrt
+
+      # O relatório do reg-suit é uma página com esperado/obtido/diferença lado
+      # a lado: é assim que se olha o que mudou sem rodar nada localmente.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: visual-report
+          path: packages/ui/.vrt/report
+          retention-days: 7
+
+      # Só a branch padrão grava. Um cache criado num PR fica visível apenas
+      # para aquele PR, e deixar cada PR gravar faria a baseline seguir a última
+      # execução qualquer em vez do estado aprovado.
+      - name: Guardar a baseline
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        uses: actions/cache/save@v4
+        with:
+          path: packages/ui/.vrt/baseline
+          key: vrt-baseline-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+
+  # ---------------------------------------------------------------------------
+  # Publicação
+  # ---------------------------------------------------------------------------
+  #
+  # O GitHub Pages hospeda o STORYBOOK — a biblioteca de componentes, não o app.
+  # O app é publicado à parte, na Vercel (ver o vercel.json e a seção de deploy
+  # do README).
+  #
+  # `needs` nos três jobs de teste + `if` na branch padrão: deploy verde a
+  # partir de build vermelho é pior que deploy nenhum, e um PR não publica.
+  publish:
+    name: publicar o Storybook no GitHub Pages
+    needs: [ready, e2e, mutation, visual]
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Grupo próprio, e sem cancelar em andamento: uma publicação interrompida no
+    # meio é pior que uma fila.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-vite-plus
+
+      # É daqui que sai o prefixo do site — `/<repo>` numa project page, string
+      # vazia numa user/org page ou domínio próprio. NUNCA digitado à mão: a
+      # própria API do Pages calcula, e errar isso publica uma página em que
+      # todo asset responde 404.
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      # `vp run build-storybook` é uma TAREFA do vite.config.ts da raiz, não um
+      # script do package.json — é a única forma de a variável abaixo chegar ao
+      # processo, porque tarefa roda em ambiente limpo e só passa o que estiver
+      # declarado em `env`. Ver o comentário na definição da tarefa.
+      - name: Build do Storybook
+        env:
+          STORYBOOK_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: vp run build-storybook
+
+      - name: Conferir que o build saiu com o base certo
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          test -f packages/ui/storybook-static/index.html
+          test -f packages/ui/storybook-static/iframe.html
+          expected="${BASE_PATH%/}/assets/"
+          if ! grep -q "\"${expected}" packages/ui/storybook-static/iframe.html; then
+            echo "::error::iframe.html não referencia ${expected} — o base não foi aplicado"
+            grep -oE '(src|href)="[^"]*assets/[^"]*"' packages/ui/storybook-static/iframe.html | head -5
+            exit 1
+          fi
+          echo "base aplicado: ${expected}"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/ui/storybook-static
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

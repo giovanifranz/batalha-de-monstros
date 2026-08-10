@@ -1,0 +1,14 @@
+{
+  "core": {
+    "workingDir": ".vrt/report",
+    "actualDir": ".vrt/actual",
+    "matchingThreshold": 0.05,
+    "thresholdPixel": 0,
+    "thresholdRate": 0,
+    "enableAntialias": false,
+    "ximgdiff": {
+      "invocationType": "none"
+    }
+  },
+  "plugins": {}
+}

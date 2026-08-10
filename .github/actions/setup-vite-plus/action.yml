@@ -1,0 +1,48 @@
+name: Setup Vite+
+description: Instala o CLI global `vp` na versão do catálogo e as dependências do workspace.
+
+runs:
+  using: composite
+  steps:
+    # O `vp` é um CLI GLOBAL: não sai do node_modules e nenhum `setup-node` o
+    # instala. Com `CI` definido no ambiente (o GitHub Actions sempre define), o
+    # instalador não faz nenhuma pergunta e liga o gerenciador de Node dele —
+    # e é ELE quem entrega o Node do `engines.node` (>= 26). Por isso não há
+    # `actions/setup-node` neste workflow: seria uma segunda fonte de verdade
+    # para a versão do Node, e a que perde.
+    #
+    # `VP_VERSION` sai do `pnpm-workspace.yaml`, não de um literal aqui: este
+    # repositório fixa toda dependência no catálogo, e um `curl | bash` sem
+    # versão era o único ponto do build que pegava "a mais nova que houver".
+    # O `vite-plus` do catálogo é o companion local do CLI e precisa bater com
+    # ele; ler os dois do mesmo lugar é o que garante isso.
+    - name: Resolver a versão do Vite+ a partir do catálogo
+      shell: bash
+      run: |
+        version="$(sed -n 's/^[[:space:]]*vite-plus:[[:space:]]*\([0-9][^[:space:]#]*\).*/\1/p' pnpm-workspace.yaml | head -n1)"
+        if [ -z "$version" ]; then
+          echo "::error::não encontrei 'vite-plus:' no catálogo de pnpm-workspace.yaml"
+          exit 1
+        fi
+        echo "VP_VERSION=$version" >> "$GITHUB_ENV"
+        echo "Vite+ fixado em $version pelo catálogo"
+
+    - name: Instalar o Vite+ (CLI `vp`)
+      shell: bash
+      run: |
+        curl -fsSL https://vite.plus | bash
+        echo "$HOME/.vite-plus/bin" >> "$GITHUB_PATH"
+
+    - name: Conferir que o `vp` instalado é o do catálogo
+      shell: bash
+      run: |
+        installed="$(vp --version | head -n1 | sed 's/^vp v//')"
+        if [ "$installed" != "$VP_VERSION" ]; then
+          echo "::error::vp $installed instalado, mas o catálogo pede $VP_VERSION"
+          exit 1
+        fi
+        echo "vp $installed"
+
+    - name: Instalar dependências
+      shell: bash
+      run: vp install
