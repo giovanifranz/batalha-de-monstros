@@ -46,6 +46,10 @@ export const battleSetupMachine = setup({
     swapSides: assign(({ context }) =>
       produce(context, (draft) => {
         [draft.left, draft.right] = [draft.right, draft.left];
+
+        if (Boolean(draft.left) !== Boolean(draft.right)) {
+          draft.activeSlot = draft.left ? 'right' : 'left';
+        }
       }),
     ),
 

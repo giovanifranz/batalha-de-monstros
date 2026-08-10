@@ -9,6 +9,7 @@ import {
   battleMachine,
   selectCurrentTurn,
   selectHp,
+  sendIfActive,
   type BattleSnapshot,
 } from './battle.machine.ts';
 
@@ -194,5 +195,39 @@ describe('battleMachine', () => {
       false,
     ]);
     expect([impacting.hasTag('announcing'), impacting.hasTag('impacting')]).toEqual([false, true]);
+  });
+});
+
+describe('sendIfActive', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('entrega o evento enquanto a batalha está rodando', () => {
+    // Arrange
+    const actor = startActor();
+
+    // Act
+    sendIfActive(actor, { type: 'speed.changed', speed: 4 });
+
+    // Assert
+    expect(actor.getSnapshot().context.speed).toBe(4);
+  });
+
+  it('engole o evento depois que a batalha terminou', () => {
+    // Arrange
+    const actor = startActor();
+    actor.send({ type: 'battle.skip' });
+
+    // Act
+    sendIfActive(actor, { type: 'speed.changed', speed: 4 });
+
+    // Assert
+    expect(actor.getSnapshot().status).toBe('done');
+    expect(actor.getSnapshot().context.speed).toBe(1);
   });
 });

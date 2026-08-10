@@ -85,6 +85,20 @@ describe('initiativeReason', () => {
     expect(reason).toBeNull();
   });
 
+  it('fica calado quando a velocidade empatou e quem começou tinha o ataque menor', () => {
+    // Arrange
+    const fighters = fightersOf(
+      monster({ speed: 60, attack: 20 }),
+      monster({ speed: 60, attack: 90 }),
+    );
+
+    // Act
+    const reason = initiativeReason(fighters, 'left');
+
+    // Assert
+    expect(reason).toBeNull();
+  });
+
   it('explica todo começo que o domínio decide hoje', () => {
     // Arrange
     const pairs: [Monster, Monster][] = [

@@ -16,7 +16,7 @@ COPY --chown=vp:vp . .
 
 RUN vp build
 
-FROM nginx:1-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1-alpine AS runtime
 
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html

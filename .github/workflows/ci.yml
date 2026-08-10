@@ -51,7 +51,7 @@ jobs:
           retention-days: 7
 
   e2e:
-    name: playwright (35 cenários)
+    name: playwright (33 cenários)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:

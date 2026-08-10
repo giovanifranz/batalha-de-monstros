@@ -1,7 +1,14 @@
 import { simulateBattle } from '@arena/domain/battle';
 import { monsterSchema, type Monster } from '@arena/domain/monster';
-import { describe, expect, it } from 'vitest';
-import { readSeedOverride, SEED_MONSTERS, SEED_OVERRIDE_KEY } from './seed-monsters.ts';
+import { createRosterCollection } from '@arena/infra/roster/collection';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
+import {
+  readSeedOverride,
+  SEED_MONSTERS,
+  SEED_OVERRIDE_KEY,
+  seedExamples,
+  seedRoster,
+} from './seed-monsters.ts';
 
 function fakeStorage(entries: Record<string, string> = {}) {
   const store = new Map(Object.entries(entries));
@@ -123,5 +130,89 @@ describe('elenco alternativo da semente', () => {
 
     // Assert
     expect(override).toBeNull();
+  });
+
+  it('ignora a chave fora do modo de desenvolvimento', () => {
+    // Arrange
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    vi.stubEnv('DEV', false);
+    const storage = fakeStorage({ [SEED_OVERRIDE_KEY]: JSON.stringify([aMonster()]) });
+
+    // Act
+    const override = readSeedOverride(storage);
+
+    // Assert
+    expect(override).toBeNull();
+  });
+});
+
+describe('semente aplicada na coleção', () => {
+  it('planta os doze exemplos numa coleção vazia', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+
+    // Act
+    const seeded = await seedExamples(roster);
+
+    // Assert
+    expect(seeded).toBe(true);
+    expect(roster.size).toBe(12);
+    expect(roster.get(SEED_MONSTERS[0].id)).toMatchObject({ name: 'Aurevanto' });
+  });
+
+  it('não planta os exemplos numa coleção que já tem monstro', async () => {
+    // Arrange
+    const roster = createRosterCollection({ initialData: [aMonster({ name: 'Aurox' })] });
+
+    // Act
+    const seeded = await seedExamples(roster);
+
+    // Assert
+    expect(seeded).toBe(false);
+    expect(roster.size).toBe(1);
+  });
+
+  it('planta o elenco alternativo do storage quando ele existe', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    const cast = [aMonster({ name: 'Aurox' })];
+    const storage = fakeStorage({ [SEED_OVERRIDE_KEY]: JSON.stringify(cast) });
+
+    // Act
+    const seeded = await seedRoster(roster, storage);
+
+    // Assert
+    expect(seeded).toBe(true);
+    expect(roster.size).toBe(1);
+    expect(roster.get(cast[0].id)).toMatchObject({ name: 'Aurox' });
+  });
+
+  it('planta os monstros da aplicação quando o storage não tem elenco alternativo', async () => {
+    // Arrange
+    const roster = createRosterCollection();
+    const storage = fakeStorage();
+
+    // Act
+    const seeded = await seedRoster(roster, storage);
+
+    // Assert
+    expect(seeded).toBe(true);
+    expect(roster.size).toBe(SEED_MONSTERS.length);
+    expect(roster.get(SEED_MONSTERS[0].id)).toMatchObject({ name: 'Aurevanto' });
+  });
+
+  it('não planta nada quando a coleção já tem monstro', async () => {
+    // Arrange
+    const roster = createRosterCollection({ initialData: [aMonster({ name: 'Aurox' })] });
+    const storage = fakeStorage();
+
+    // Act
+    const seeded = await seedRoster(roster, storage);
+
+    // Assert
+    expect(seeded).toBe(false);
+    expect(roster.size).toBe(1);
   });
 });

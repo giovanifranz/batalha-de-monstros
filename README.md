@@ -71,25 +71,25 @@ editados, excluídos, e o estado vazio traz um botão para restaurá-los.
 Cada linha diz o que o comando **realmente** cobre, porque a divisão entre eles
 não é óbvia e já custou caro uma vez (veja a seção seguinte).
 
-| Comando                                   | O que roda                                                                                                              |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `vp dev`                                  | O app (`apps/web`), via `defaultPackage` do `vite.config.ts` da raiz.                                                   |
-| `vp check`                                | O portão único: oxfmt + oxlint + type-check numa passada só.                                                            |
-| `vp check --fix`                          | O mesmo, corrigindo formatação e ordem de chaves de `package.json`.                                                     |
-| `vp test`                                 | 126 testes unitários — `packages/domain` (46), `packages/infra` (40), `apps/web` (40). **Não** roda a suíte de stories. |
-| `vp run test:stories`                     | 95 testes de story do `packages/ui` num Chromium real, com o addon de a11y em `test: 'error'`.                          |
-| `vp run ready`                            | `vp check` + `vp test` + `vp run test:stories` + `vp run -r build`, nessa ordem.                                        |
-| `vp -C apps/web run test:e2e`             | 35 cenários Playwright (BDD, sem rede).                                                                                 |
-| `vp -C apps/web run test:e2e:ui`          | Os mesmos, no modo UI, para depurar passo a passo.                                                                      |
-| `vp -C packages/domain run test:mutation` | Stryker sobre o motor de batalha e o schema (`break: 100`).                                                             |
-| `vp -C packages/infra run test:mutation`  | Stryker sobre a camada de persistência (`break: 100`).                                                                  |
-| `vp -C packages/ui run storybook`         | Storybook do design system em http://localhost:6006.                                                                    |
-| `vp run vrt`                              | Regressão visual: 95 PNGs do Storybook comparados pixel a pixel com a baseline.                                         |
-| `vp run vrt:approve`                      | Grava a captura atual **como** baseline. É o passo depois de uma mudança visual intencional.                            |
-| `vp run build-storybook`                  | Build estático do Storybook → `packages/ui/storybook-static`. É o que o CI publica.                                     |
-| `vp -C apps/web build`                    | Build de produção do app → `apps/web/dist`.                                                                             |
-| `vp run -r build`                         | O mesmo, pelo task runner, respeitando o grafo de dependências. É a última etapa do `ready`.                            |
-| `vp -C apps/web preview`                  | Serve o `dist` com fallback de SPA, para conferir o build.                                                              |
+| Comando                                   | O que roda                                                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `vp dev`                                  | O app (`apps/web`), via `defaultPackage` do `vite.config.ts` da raiz.                                                    |
+| `vp check`                                | O portão único: oxfmt + oxlint + type-check numa passada só.                                                             |
+| `vp check --fix`                          | O mesmo, corrigindo formatação e ordem de chaves de `package.json`.                                                      |
+| `vp test`                                 | 187 testes unitários — `packages/domain` (46), `packages/infra` (40), `apps/web` (101). **Não** roda a suíte de stories. |
+| `vp run test:stories`                     | 95 testes de story do `packages/ui` num Chromium real, com o addon de a11y em `test: 'error'`.                           |
+| `vp run ready`                            | `vp check` + `vp test` + `vp run test:stories` + `vp run -r build`, nessa ordem.                                         |
+| `vp -C apps/web run test:e2e`             | 33 cenários Playwright (BDD, sem rede).                                                                                  |
+| `vp -C apps/web run test:e2e:ui`          | Os mesmos, no modo UI, para depurar passo a passo.                                                                       |
+| `vp -C packages/domain run test:mutation` | Stryker sobre o motor de batalha e o schema (`break: 100`).                                                              |
+| `vp -C packages/infra run test:mutation`  | Stryker sobre a camada de persistência (`break: 100`).                                                                   |
+| `vp -C packages/ui run storybook`         | Storybook do design system em http://localhost:6006.                                                                     |
+| `vp run vrt`                              | Regressão visual: 95 PNGs do Storybook comparados pixel a pixel com a baseline.                                          |
+| `vp run vrt:approve`                      | Grava a captura atual **como** baseline. É o passo depois de uma mudança visual intencional.                             |
+| `vp run build-storybook`                  | Build estático do Storybook → `packages/ui/storybook-static`. É o que o CI publica.                                      |
+| `vp -C apps/web build`                    | Build de produção do app → `apps/web/dist`.                                                                              |
+| `vp run -r build`                         | O mesmo, pelo task runner, respeitando o grafo de dependências. É a última etapa do `ready`.                             |
+| `vp -C apps/web preview`                  | Serve o `dist` com fallback de SPA, para conferir o build.                                                               |
 
 ### Hooks de git
 
@@ -395,7 +395,7 @@ a outra.
 vp test                                     # 99 unitários
 vp run test:stories                         # 95 stories, Chromium real
 vp run vrt                                  # 95 PNGs contra a baseline
-vp -C apps/web run test:e2e                 # 35 cenários
+vp -C apps/web run test:e2e                 # 33 cenários
 vp -C packages/domain run test:mutation     # 100,00%
 vp -C packages/infra  run test:mutation     # 100,00%
 ```
@@ -414,7 +414,7 @@ Detalhes que valem a pena saber:
   recarregar não ressuscita o que o cenário excluiu — não há guarda a manter. Mas **o cenário de cadastro dirige a
   UI de verdade** com um helper `registrarMonstro(page, dados)` — cadastrar é
   justamente o que aquele teste existe para provar, e fingi-lo seria trapaça.
-- **20 dos 35 cenários são gerados por modelo.** `getShortestPaths` do
+- **18 dos 33 cenários são gerados por modelo.** `getShortestPaths` do
   `@xstate/graph` percorre a `battleSetupMachine` e produz um caminho por estado
   alcançável; mais dois testes falham se algum estado ou algum evento do modelo
   ficar sem asserção na suíte. Caminho que ninguém pensou em escrever ainda é
@@ -531,7 +531,7 @@ espera o primeiro e um de publicação que só roda depois dos quatro:
 | Job         | O que roda                                                        | Quando                                |
 | ----------- | ----------------------------------------------------------------- | ------------------------------------- |
 | `ready`     | `vp run ready` (check + 99 unitários + 95 stories + build)        | todo push/PR                          |
-| `e2e`       | os 35 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
+| `e2e`       | os 33 cenários Playwright, com o relatório HTML como artefato     | todo push/PR                          |
 | `mutation`  | os dois Strykers, com os relatórios como artefato                 | todo push/PR                          |
 | `visual`    | `vp run vrt` — 95 PNGs contra a baseline, relatório como artefato | todo push/PR                          |
 | `sonarqube` | análise estática na SonarCloud, sobre o lcov que o `ready` gerou  | depois do `ready`                     |
@@ -642,7 +642,7 @@ não sobe browser).
 
 Ela **não** cobre `.tsx` nem `packages/ui`, e isso está declarado em
 `sonar.coverage.exclusions` em vez de ficar implícito: componente React é
-verificado pelas 95 stories e pelos 35 cenários Playwright, e nenhuma das duas
+verificado pelas 95 stories e pelos 33 cenários Playwright, e nenhuma das duas
 suítes emite lcov. Sem a exclusão o Sonar contaria esses arquivos como 0% e a
 métrica passaria a medir a fronteira da suíte unitária, não a qualidade do
 código. É a mesma linha de

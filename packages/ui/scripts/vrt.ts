@@ -13,7 +13,7 @@
  * opções que tornam uma foto reprodutível (`animations`, `caret`,
  * `deviceScaleFactor`) são dele.
  */
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { cp, mkdir, readdir, rm } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import path from 'node:path';
@@ -88,6 +88,14 @@ function fileFor(entry: StoryEntry): string {
   return path.join(actualDir, dir, `${safe(entry.name)}.png`);
 }
 
+function isRegularFile(file: string): boolean {
+  try {
+    return statSync(file).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Servidor estático mínimo para `storybook-static`. É necessário porque o build
  * do Storybook referencia os assets a partir da raiz do site (`/assets/...`), e
@@ -97,10 +105,14 @@ function serveStorybook(): Promise<{ server: Server; origin: string }> {
   const server = createServer((request, response) => {
     const requestPath = decodeURIComponent((request.url ?? '/').split('?')[0]);
     const relative = requestPath.endsWith('/') ? `${requestPath}index.html` : requestPath;
-    const file = path.join(storybookDir, path.normalize(relative));
+    const base = path.resolve(storybookDir);
+    const file = path.resolve(base, `.${path.posix.normalize(`/${relative}`)}`);
 
-    // Impede que `..` no caminho escape do diretório servido.
-    if (!file.startsWith(storybookDir) || !existsSync(file)) {
+    // `base + path.sep` e não `base`: um `startsWith` cru aceitaria um diretório
+    // IRMÃO cujo nome começa igual (`storybook-static-outro`). E `isFile` e não
+    // `existsSync`: um diretório existe, passa a guarda, e o `createReadStream`
+    // sobre ele emite `EISDIR` — sem listener, isso derruba a execução inteira.
+    if (!file.startsWith(base + path.sep) || !isRegularFile(file)) {
       response.writeHead(404).end('not found');
       return;
     }
