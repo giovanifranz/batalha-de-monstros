@@ -16,12 +16,12 @@ type ArenaOptions = {
   speed: PlaybackSpeed;
 };
 
-function resolverElenco(nomes: readonly string[]): readonly Monster[] {
-  return nomes.map((nome) => {
-    const encontrado = ROSTER.find((monster) => monster.name === nome);
-    if (!encontrado) throw new Error(`Monstro de fixture inexistente: ${nome}`);
+function resolveCast(names: readonly string[]): readonly Monster[] {
+  return names.map((name) => {
+    const found = ROSTER.find((monster) => monster.name === name);
+    if (!found) throw new Error(`Monstro de fixture inexistente: ${name}`);
 
-    return encontrado;
+    return found;
   });
 }
 
@@ -37,7 +37,7 @@ export const test = base.extend<ArenaOptions>({
           window.localStorage.setItem(settingsKey, settingsValue);
         }
       },
-      [SEED_KEY, JSON.stringify(resolverElenco(roster)), SETTINGS_KEY, settingsPayload(speed)],
+      [SEED_KEY, JSON.stringify(resolveCast(roster)), SETTINGS_KEY, settingsPayload(speed)],
     );
 
     const origin = new URL(baseURL ?? 'http://localhost').origin;

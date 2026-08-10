@@ -1,17 +1,17 @@
 import type { Locator, Page } from '@playwright/test';
 
-function escapar(texto: string): string {
-  return texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function cardDoMonstro(page: Page, nome: string): Locator {
-  return page.getByRole('button', { name: new RegExp(`${escapar(nome)} HP\\b`) });
+export function monsterCard(page: Page, name: string): Locator {
+  return page.getByRole('button', { name: new RegExp(`${escapeRegex(name)} HP\\b`) });
 }
 
-export function cardDoRoster(page: Page, nome: string): Locator {
-  return page.locator('[data-slot="card"]').filter({ hasText: nome });
+export function rosterCard(page: Page, name: string): Locator {
+  return page.locator('[data-slot="card"]').filter({ hasText: name });
 }
 
-export function cardsVisiveis(page: Page): Locator {
+export function visibleCards(page: Page): Locator {
   return page.getByRole('button', { name: /^Excluir .+/ });
 }

@@ -4,7 +4,7 @@ import type { SnapshotFrom, StateValue } from 'xstate';
 import { battleSetupMachine } from '../src/machines/battle-setup.machine.ts';
 import { test } from './fixtures/arena.ts';
 import { AUROX, BRONTOR } from './fixtures/monsters.ts';
-import { cardDoMonstro } from './helpers/locators.ts';
+import { monsterCard } from './helpers/locators.ts';
 
 const model = createTestModel(battleSetupMachine, {
   events: [
@@ -16,19 +16,19 @@ const model = createTestModel(battleSetupMachine, {
 
 const slotsOcupados = 'button[aria-label^="Remover "]';
 
-const GESTOS = ['fighter.picked', 'sides.swapped', 'selection.cleared'] as const;
-type Gesto = (typeof GESTOS)[number];
+const GESTURES = ['fighter.picked', 'sides.swapped', 'selection.cleared'] as const;
+type Gesture = (typeof GESTURES)[number];
 
-const ESTADOS = ['empty', 'partial', 'ready'] as const;
-type Estado = (typeof ESTADOS)[number];
+const STATES = ['empty', 'partial', 'ready'] as const;
+type State = (typeof STATES)[number];
 
-function executores(
+function executors(
   page: Page,
-): Record<Gesto, (step: { event: { type: string } }) => Promise<void>> {
+): Record<Gesture, (step: { event: { type: string } }) => Promise<void>> {
   return {
     'fighter.picked': async ({ event }) => {
       const { monster } = event as unknown as { monster: { name: string } };
-      await cardDoMonstro(page, monster.name).click();
+      await monsterCard(page, monster.name).click();
     },
 
     'sides.swapped': async () => {
@@ -46,7 +46,7 @@ function executores(
   };
 }
 
-function assercoesDeEstado(page: Page): Record<Estado, () => Promise<void>> {
+function stateAssertions(page: Page): Record<State, () => Promise<void>> {
   return {
     empty: async () => {
       await expect(page.getByRole('button', { name: 'Lutar!' })).toBeDisabled();
@@ -65,89 +65,89 @@ function assercoesDeEstado(page: Page): Record<Estado, () => Promise<void>> {
   };
 }
 
-function descrever(steps: readonly { event: { type: string } }[], estado: StateValue): string {
-  const nome = typeof estado === 'string' ? estado : JSON.stringify(estado);
+function descrever(steps: readonly { event: { type: string } }[], state: StateValue): string {
+  const name = typeof state === 'string' ? state : JSON.stringify(state);
 
-  const gestos = steps
+  const gestures = steps
     .filter((step) => step.event.type !== 'xstate.init')
     .map((step) => {
       const evento = step.event as { type: string; monster?: { name: string } };
       return evento.monster ? `${evento.type}(${evento.monster.name})` : evento.type;
     });
 
-  return gestos.length ? `chega em "${nome}" via ${gestos.join(' → ')}` : `começa em "${nome}"`;
+  return gestures.length ? `chega em "${name}" via ${gestures.join(' → ')}` : `começa em "${name}"`;
 }
 
-const LIMITE_DE_TRAVESSIA = 5_000;
+const TRAVERSAL_LIMIT = 5_000;
 
-let caminhos: ReturnType<typeof model.getShortestPaths> = [];
+let paths: ReturnType<typeof model.getShortestPaths> = [];
 let falhaDaTravessia: Error | null = null;
 try {
-  caminhos = model.getShortestPaths({ limit: LIMITE_DE_TRAVESSIA });
+  paths = model.getShortestPaths({ limit: TRAVERSAL_LIMIT });
 } catch (erro) {
   falhaDaTravessia = erro instanceof Error ? erro : new Error('causa não-Error na travessia');
 }
 
 if (falhaDaTravessia) {
-  const causa = falhaDaTravessia.message;
+  const cause = falhaDaTravessia.message;
 
   test('a travessia do modelo cabe no limite configurado', () => {
     throw new Error(
-      `A travessia estourou LIMITE_DE_TRAVESSIA (${LIMITE_DE_TRAVESSIA}). O requisito é ` +
+      `A travessia estourou LIMITE_DE_TRAVESSIA (${TRAVERSAL_LIMIT}). O requisito é ` +
         `nós × eventos concretos; suba o teto e confira a aritmética no comentário. ` +
-        `Causa: ${causa}`,
+        `Causa: ${cause}`,
     );
   });
 }
 
 function eventosDaAdjacencia(): string[] {
-  const tipos = new Set<string>();
+  const kinds = new Set<string>();
 
   for (const no of Object.values(model.getAdjacencyMap())) {
     const { transitions } = no as { transitions: Record<string, { event: { type: string } }> };
-    for (const transicao of Object.values(transitions)) tipos.add(transicao.event.type);
+    for (const transicao of Object.values(transitions)) kinds.add(transicao.event.type);
   }
 
-  return [...tipos].sort((a, b) => a.localeCompare(b));
+  return [...kinds].sort((a, b) => a.localeCompare(b));
 }
 
 test('todo evento do modelo tem um executor nesta suíte', () => {
   expect(
     eventosDaAdjacencia(),
     'evento declarado na máquina sem gesto correspondente em GESTOS',
-  ).toEqual([...GESTOS].sort((a, b) => a.localeCompare(b)));
+  ).toEqual([...GESTURES].sort((a, b) => a.localeCompare(b)));
 });
 
-function estadosSemAssercao(): string[] {
-  const descobertos = new Set<string>();
+function statesWithoutAssertion(): string[] {
+  const discovered = new Set<string>();
 
   for (const no of Object.values(model.getAdjacencyMap())) {
     const { state } = no as { state: SnapshotFrom<typeof battleSetupMachine> };
-    if (ESTADOS.some((chave) => state.matches(chave))) continue;
+    if (STATES.some((key) => state.matches(key))) continue;
 
-    descobertos.add(typeof state.value === 'string' ? state.value : JSON.stringify(state.value));
+    discovered.add(typeof state.value === 'string' ? state.value : JSON.stringify(state.value));
   }
 
-  return [...descobertos].sort((a, b) => a.localeCompare(b));
+  return [...discovered].sort((a, b) => a.localeCompare(b));
 }
 
 test('todo estado alcançável tem asserção nesta suíte', () => {
   expect(
-    estadosSemAssercao(),
+    statesWithoutAssertion(),
     'estado alcançável pela máquina sem asserção correspondente em ESTADOS',
   ).toEqual([]);
 });
 
-for (const path of caminhos) {
+for (const path of paths) {
   test(`seleção — ${descrever(path.steps, path.state.value)}`, async ({ page }) => {
     await test.step('Dado que estou na tela de montar batalha', async () => {
       await page.goto('/battle');
-      await expect(cardDoMonstro(page, AUROX.name)).toBeVisible();
+      await expect(monsterCard(page, AUROX.name)).toBeVisible();
     });
 
     await path.test({
-      states: assercoesDeEstado(page),
-      events: executores(page),
+      states: stateAssertions(page),
+      events: executors(page),
     });
   });
 }

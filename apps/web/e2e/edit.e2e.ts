@@ -1,9 +1,9 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures/arena.ts';
 import { AUROX, BRONTOR } from './fixtures/monsters.ts';
-import { cardDoRoster, cardsVisiveis } from './helpers/locators.ts';
+import { rosterCard, visibleCards } from './helpers/locators.ts';
 
-const NOME_NOVO = 'Vorax';
+const NEW_NAME = 'Vorax';
 
 test.describe('editar um monstro', () => {
   test.use({ roster: [AUROX.name, BRONTOR.name] });
@@ -12,11 +12,11 @@ test.describe('editar um monstro', () => {
     await test.step('Dado um roster com dois monstros', async () => {
       await page.goto('/');
 
-      await expect(cardsVisiveis(page)).toHaveCount(2);
+      await expect(visibleCards(page)).toHaveCount(2);
     });
 
     await test.step(`Quando eu peço para editar ${AUROX.name}`, async () => {
-      await cardDoRoster(page, AUROX.name).getByRole('button', { name: 'Editar' }).click();
+      await rosterCard(page, AUROX.name).getByRole('button', { name: 'Editar' }).click();
     });
 
     await test.step('Então o formulário abre com os atributos dele', async () => {
@@ -44,20 +44,20 @@ test.describe('editar um monstro', () => {
     await test.step('Quando eu volto para dentro do orçamento e troco o nome', async () => {
       await page.getByLabel('Defesa').fill(String(AUROX.defense));
       await page.getByLabel('Velocidade').fill(String(AUROX.speed));
-      await page.getByLabel('Nome').fill(NOME_NOVO);
+      await page.getByLabel('Nome').fill(NEW_NAME);
       await page.getByRole('button', { name: 'Salvar alterações' }).click();
     });
 
     await test.step('Então volto ao roster com o nome novo no lugar do antigo', async () => {
-      await expect(page.getByText(`${NOME_NOVO} foi atualizado.`)).toBeVisible();
+      await expect(page.getByText(`${NEW_NAME} foi atualizado.`)).toBeVisible();
       await expect(page).toHaveURL(/\/(\?|$)/);
-      await expect(cardDoRoster(page, NOME_NOVO)).toBeVisible();
-      await expect(cardDoRoster(page, AUROX.name)).toHaveCount(0);
-      await expect(cardsVisiveis(page)).toHaveCount(2);
+      await expect(rosterCard(page, NEW_NAME)).toBeVisible();
+      await expect(rosterCard(page, AUROX.name)).toHaveCount(0);
+      await expect(visibleCards(page)).toHaveCount(2);
     });
 
     await test.step('E o outro monstro segue intacto', async () => {
-      await expect(cardDoRoster(page, BRONTOR.name)).toBeVisible();
+      await expect(rosterCard(page, BRONTOR.name)).toBeVisible();
     });
   });
 

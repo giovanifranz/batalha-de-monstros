@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures/arena.ts';
-import { AUROX, BRONTOR, DUELO, DUELO_ESPELHADO } from './fixtures/monsters.ts';
-import { cardDoMonstro } from './helpers/locators.ts';
+import { AUROX, BRONTOR, DUEL, MIRRORED_DUEL } from './fixtures/monsters.ts';
+import { monsterCard } from './helpers/locators.ts';
 
 test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', async ({
   page,
@@ -10,12 +10,12 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
     await page.goto('/battle');
 
     await expect(page.getByRole('heading', { name: 'Batalha' })).toBeVisible();
-    await expect(cardDoMonstro(page, AUROX.name)).toBeVisible();
+    await expect(monsterCard(page, AUROX.name)).toBeVisible();
   });
 
   await test.step('Quando eu escalo Aurox e Brontor', async () => {
-    await cardDoMonstro(page, AUROX.name).click();
-    await cardDoMonstro(page, BRONTOR.name).click();
+    await monsterCard(page, AUROX.name).click();
+    await monsterCard(page, BRONTOR.name).click();
 
     await expect(page.getByRole('button', { name: `Remover ${AUROX.name}` })).toBeVisible();
     await expect(page.getByRole('button', { name: `Remover ${BRONTOR.name}` })).toBeVisible();
@@ -34,7 +34,7 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
     const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
     await expect(painel).toBeVisible({ timeout: 15_000 });
-    await expect(painel).toContainText(`${DUELO.vencedor} venceu a batalha!`);
+    await expect(painel).toContainText(`${DUEL.winner} venceu a batalha!`);
   });
 
   await test.step('E o resumo traz os rounds, os golpes e o dano de cada lado', async () => {
@@ -43,10 +43,10 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
       .getByRole('definition');
 
     await expect(numeros).toHaveText([
-      String(DUELO.rounds),
-      String(DUELO.golpes),
-      String(DUELO.danoDoAurox),
-      String(DUELO.danoDoBrontor),
+      String(DUEL.rounds),
+      String(DUEL.hits),
+      String(DUEL.auroxDamage),
+      String(DUEL.brontorDamage),
     ]);
   });
 
@@ -61,11 +61,11 @@ test('a batalha termina sozinha e anuncia o vencedor que o algoritmo calculou', 
   await test.step('E o HP dos dois lados bate com o log, não com a largura da barra', async () => {
     await expect(page.getByRole('progressbar', { name: `HP de ${AUROX.name}` })).toHaveAttribute(
       'aria-valuenow',
-      String(DUELO.hpFinalDoAurox),
+      String(DUEL.auroxFinalHp),
     );
     await expect(page.getByRole('progressbar', { name: `HP de ${BRONTOR.name}` })).toHaveAttribute(
       'aria-valuenow',
-      String(DUELO.hpFinalDoBrontor),
+      String(DUEL.brontorFinalHp),
     );
   });
 
@@ -89,10 +89,10 @@ test('com os lados trocados, quem vence e quem começa passam a ser o Lutador 2'
   await test.step('Então o painel coroa o monstro da DIREITA', async () => {
     const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
-    await expect(painel).toContainText(`${DUELO_ESPELHADO.vencedor} venceu a batalha!`, {
+    await expect(painel).toContainText(`${MIRRORED_DUEL.winner} venceu a batalha!`, {
       timeout: 15_000,
     });
-    await expect(painel).not.toContainText(`${DUELO_ESPELHADO.perdedor} venceu a batalha!`);
+    await expect(painel).not.toContainText(`${MIRRORED_DUEL.loser} venceu a batalha!`);
   });
 
   await test.step('E credita a iniciativa ao monstro da DIREITA', async () => {
@@ -107,19 +107,19 @@ test('com os lados trocados, quem vence e quem começa passam a ser o Lutador 2'
     await expect(
       page.getByRole('region', { name: 'Resultado da batalha: vencedor' }).getByRole('definition'),
     ).toHaveText([
-      String(DUELO_ESPELHADO.rounds),
-      String(DUELO_ESPELHADO.golpes),
-      String(DUELO_ESPELHADO.danoDoBrontor),
-      String(DUELO_ESPELHADO.danoDoAurox),
+      String(MIRRORED_DUEL.rounds),
+      String(MIRRORED_DUEL.hits),
+      String(MIRRORED_DUEL.brontorDamage),
+      String(MIRRORED_DUEL.auroxDamage),
     ]);
 
     await expect(page.getByRole('progressbar', { name: `HP de ${BRONTOR.name}` })).toHaveAttribute(
       'aria-valuenow',
-      String(DUELO_ESPELHADO.hpFinalDoBrontor),
+      String(MIRRORED_DUEL.brontorFinalHp),
     );
     await expect(page.getByRole('progressbar', { name: `HP de ${AUROX.name}` })).toHaveAttribute(
       'aria-valuenow',
-      String(DUELO_ESPELHADO.hpFinalDoAurox),
+      String(MIRRORED_DUEL.auroxFinalHp),
     );
   });
 });
@@ -147,12 +147,12 @@ test.describe('em velocidade 1x', () => {
     await test.step('Então o resultado é o mesmo que a reprodução completa daria', async () => {
       const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
-      await expect(painel).toContainText(`${DUELO.vencedor} venceu a batalha!`);
+      await expect(painel).toContainText(`${DUEL.winner} venceu a batalha!`);
       await expect(painel.getByRole('definition')).toHaveText([
-        String(DUELO.rounds),
-        String(DUELO.golpes),
-        String(DUELO.danoDoAurox),
-        String(DUELO.danoDoBrontor),
+        String(DUEL.rounds),
+        String(DUEL.hits),
+        String(DUEL.auroxDamage),
+        String(DUEL.brontorDamage),
       ]);
       await expect(
         page.getByRole('progressbar', { name: `HP de ${BRONTOR.name}` }),
@@ -169,12 +169,10 @@ test('um duelo com um monstro que não está no roster mostra a batalha indispon
   });
 
   await test.step('Então a tela explica o problema e oferece o caminho de volta', async () => {
-    const alerta = page.getByRole('alert');
+    const alert = page.getByRole('alert');
 
-    await expect(alerta).toContainText('Batalha indisponível');
-    await expect(alerta).toContainText(
-      'Um dos monstros deste duelo não existe mais no seu roster.',
-    );
+    await expect(alert).toContainText('Batalha indisponível');
+    await expect(alert).toContainText('Um dos monstros deste duelo não existe mais no seu roster.');
     await expect(page.getByRole('link', { name: 'Escolher outros monstros' })).toBeVisible();
   });
 
@@ -182,6 +180,6 @@ test('um duelo com um monstro que não está no roster mostra a batalha indispon
     await page.getByRole('link', { name: 'Escolher outros monstros' }).click();
 
     await expect(page).toHaveURL('/battle');
-    await expect(cardDoMonstro(page, AUROX.name)).toBeVisible();
+    await expect(monsterCard(page, AUROX.name)).toBeVisible();
   });
 });

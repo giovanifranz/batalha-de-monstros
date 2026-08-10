@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { test } from './fixtures/arena.ts';
-import { BRONTOR, DUELO_DO_CADASTRO, ROSTER, SOMBRASTRO } from './fixtures/monsters.ts';
-import { cardDoMonstro, cardDoRoster } from './helpers/locators.ts';
+import { BRONTOR, REGISTRATION_DUEL, ROSTER, SOMBRASTRO } from './fixtures/monsters.ts';
+import { monsterCard, rosterCard } from './helpers/locators.ts';
 
 test('um monstro cadastrado pelo formulário entra no roster, já escalado, e vence a batalha', async ({
   page,
@@ -27,7 +27,7 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
   });
 
   await test.step('Quando eu estouro o orçamento de 250 pontos', async () => {
-    await page.getByLabel('Nome', { exact: true }).fill(SOMBRASTRO.nome);
+    await page.getByLabel('Nome', { exact: true }).fill(SOMBRASTRO.name);
     await page.getByLabel('Ataque', { exact: true }).fill('100');
     await page.getByLabel('Defesa', { exact: true }).fill('100');
     await page.getByLabel('Velocidade', { exact: true }).fill('100');
@@ -44,11 +44,11 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
   });
 
   await test.step('Quando eu corrijo os atributos para valores válidos', async () => {
-    await page.getByLabel('Ataque', { exact: true }).fill(SOMBRASTRO.ataque);
-    await page.getByLabel('Defesa', { exact: true }).fill(SOMBRASTRO.defesa);
-    await page.getByLabel('Velocidade', { exact: true }).fill(SOMBRASTRO.velocidade);
+    await page.getByLabel('Ataque', { exact: true }).fill(SOMBRASTRO.attack);
+    await page.getByLabel('Defesa', { exact: true }).fill(SOMBRASTRO.defense);
+    await page.getByLabel('Velocidade', { exact: true }).fill(SOMBRASTRO.speed);
     await page.getByLabel('HP', { exact: true }).fill(SOMBRASTRO.hp);
-    await page.getByLabel('URL da imagem', { exact: true }).fill(SOMBRASTRO.imagem);
+    await page.getByLabel('URL da imagem', { exact: true }).fill(SOMBRASTRO.image);
   });
 
   await test.step('Então não sobra nenhum erro na tela', async () => {
@@ -62,28 +62,28 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
 
   await test.step('Então sou levado para a batalha com ele já escalado', async () => {
     await expect(page).toHaveURL('/battle');
-    await expect(page.getByRole('button', { name: `Remover ${SOMBRASTRO.nome}` })).toBeVisible();
+    await expect(page.getByRole('button', { name: `Remover ${SOMBRASTRO.name}` })).toBeVisible();
     await expect(
-      page.getByText(`${SOMBRASTRO.nome} já está escalado para este duelo.`),
+      page.getByText(`${SOMBRASTRO.name} já está escalado para este duelo.`),
     ).toBeVisible();
   });
 
   await test.step(`Quando eu o coloco para lutar contra ${BRONTOR.name}`, async () => {
-    await cardDoMonstro(page, BRONTOR.name).click();
+    await monsterCard(page, BRONTOR.name).click();
     await page.getByRole('button', { name: 'Lutar!' }).click();
   });
 
   await test.step('Então ele vence, com os números que o algoritmo calculou', async () => {
     const painel = page.getByRole('region', { name: 'Resultado da batalha: vencedor' });
 
-    await expect(painel).toContainText(`${DUELO_DO_CADASTRO.vencedor} venceu a batalha!`, {
+    await expect(painel).toContainText(`${REGISTRATION_DUEL.winner} venceu a batalha!`, {
       timeout: 15_000,
     });
     await expect(painel.getByRole('definition')).toHaveText([
-      String(DUELO_DO_CADASTRO.rounds),
-      String(DUELO_DO_CADASTRO.golpes),
-      String(DUELO_DO_CADASTRO.danoDoSombrastro),
-      String(DUELO_DO_CADASTRO.danoDoBrontor),
+      String(REGISTRATION_DUEL.rounds),
+      String(REGISTRATION_DUEL.hits),
+      String(REGISTRATION_DUEL.sombrastroDamage),
+      String(REGISTRATION_DUEL.brontorDamage),
     ]);
   });
 
@@ -94,9 +94,9 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
       page.getByText(`${ROSTER.length + 1} monstros prontos para batalhar.`),
     ).toBeVisible();
 
-    await page.getByLabel('Buscar monstro por nome').fill(SOMBRASTRO.nome);
+    await page.getByLabel('Buscar monstro por nome').fill(SOMBRASTRO.name);
 
-    await expect(cardDoRoster(page, SOMBRASTRO.nome)).toBeVisible();
+    await expect(rosterCard(page, SOMBRASTRO.name)).toBeVisible();
     await expect(page.getByText(`Mostrando 1 de ${ROSTER.length + 1} monstros.`)).toBeVisible();
   });
 
@@ -104,6 +104,6 @@ test('um monstro cadastrado pelo formulário entra no roster, já escalado, e ve
     await page.goto('/');
 
     await expect(page.getByText(`${ROSTER.length} monstros prontos para batalhar.`)).toBeVisible();
-    await expect(cardDoRoster(page, SOMBRASTRO.nome)).toHaveCount(0);
+    await expect(rosterCard(page, SOMBRASTRO.name)).toHaveCount(0);
   });
 });

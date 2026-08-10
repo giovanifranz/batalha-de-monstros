@@ -24,9 +24,9 @@ const medirHoverDeTodasAsVariantes =
 
     const medido: Record<string, number> = {};
 
-    for (const nome of VARIANTES) {
-      const botao = canvas.getByRole('button', { name: nome });
-      medido[nome] = textContrast(botao, { pseudo: ':hover' });
+    for (const name of VARIANTES) {
+      const botao = canvas.getByRole('button', { name: name });
+      medido[name] = textContrast(botao, { pseudo: ':hover' });
     }
 
     await expect(Object.entries(medido).filter(([, razao]) => razao < AA_NORMAL_TEXT)).toEqual([]);

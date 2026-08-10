@@ -1,7 +1,6 @@
 import { simulateBattle } from '@arena/domain/battle';
 import { monsterSchema, type Monster } from '@arena/domain/monster';
 import { describe, expect, it } from 'vitest';
-import { sortByName } from '@/hooks/useMonsterBrowser.ts';
 import { readSeedOverride, SEED_MONSTERS, SEED_OVERRIDE_KEY } from './seed-monsters.ts';
 
 function fakeStorage(entries: Record<string, string> = {}) {
@@ -44,7 +43,7 @@ describe('semente do roster', () => {
 
   it('abre o duelo padrão com as duas regras de dano numa batalha curta', () => {
     // Arrange
-    const [left, right] = sortByName(SEED_MONSTERS);
+    const [left, right] = [...SEED_MONSTERS].sort((a, b) => a.name.localeCompare(b.name));
 
     // Act
     const result = simulateBattle(left, right);
@@ -60,10 +59,10 @@ describe('semente do roster', () => {
     const ids = SEED_MONSTERS.map((monster) => monster.id);
 
     // Act
-    const invalidos = ids.filter((id) => !monsterSchema.shape.id.safeParse(id).success);
+    const invalid = ids.filter((id) => !monsterSchema.shape.id.safeParse(id).success);
 
     // Assert
-    expect(invalidos).toEqual([]);
+    expect(invalid).toEqual([]);
     expect(new Set(ids).size).toBe(SEED_MONSTERS.length);
   });
 });
@@ -82,14 +81,14 @@ describe('elenco alternativo da semente', () => {
 
   it('devolve os monstros gravados na chave', () => {
     // Arrange
-    const elenco = [aMonster({ name: 'Aurox' })];
-    const storage = fakeStorage({ [SEED_OVERRIDE_KEY]: JSON.stringify(elenco) });
+    const cast = [aMonster({ name: 'Aurox' })];
+    const storage = fakeStorage({ [SEED_OVERRIDE_KEY]: JSON.stringify(cast) });
 
     // Act
     const override = readSeedOverride(storage);
 
     // Assert
-    expect(override).toEqual(elenco);
+    expect(override).toEqual(cast);
   });
 
   it('devolve null para uma lista vazia, deixando a semente do app entrar', () => {
@@ -116,8 +115,8 @@ describe('elenco alternativo da semente', () => {
 
   it('devolve null quando um dos monstros não passa no schema', () => {
     // Arrange
-    const elenco = [aMonster(), { ...aMonster({ id: 'nao-e-uuid' }) }];
-    const storage = fakeStorage({ [SEED_OVERRIDE_KEY]: JSON.stringify(elenco) });
+    const cast = [aMonster(), { ...aMonster({ id: 'nao-e-uuid' }) }];
+    const storage = fakeStorage({ [SEED_OVERRIDE_KEY]: JSON.stringify(cast) });
 
     // Act
     const override = readSeedOverride(storage);

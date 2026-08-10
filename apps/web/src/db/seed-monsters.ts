@@ -8,13 +8,13 @@ function svgDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-function creatureArt(fundo: string, corpo: string, olho: string, silhueta: string): string {
+function creatureArt(background: string, body: string, eye: string, silhouette: string): string {
   return svgDataUri(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-      `<rect width="64" height="64" fill="${fundo}"/>` +
-      `<path d="${silhueta}" fill="${corpo}"/>` +
-      `<circle cx="26" cy="32" r="3.5" fill="${olho}"/>` +
-      `<circle cx="38" cy="32" r="3.5" fill="${olho}"/>` +
+      `<rect width="64" height="64" fill="${background}"/>` +
+      `<path d="${silhouette}" fill="${body}"/>` +
+      `<circle cx="26" cy="32" r="3.5" fill="${eye}"/>` +
+      `<circle cx="38" cy="32" r="3.5" fill="${eye}"/>` +
       '</svg>',
   );
 }

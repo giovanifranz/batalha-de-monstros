@@ -3,7 +3,7 @@ import { expect, waitFor } from 'storybook/test';
 import { aquashell, pyrelisk } from '../testing/fixtures.ts';
 import { FighterCard } from './FighterCard.tsx';
 
-const nomeLongo = 'Pyrelisk Imperador das Chamas Eternas XI';
+const longName = 'Pyrelisk Imperador das Chamas Eternas XI';
 
 const arteQuebrada = 'data:image/png;base64,quebrada';
 
@@ -115,9 +115,9 @@ export const ArteQuebrada: Story = {
 };
 
 export const NomeLongo: Story = {
-  args: { monster: { ...pyrelisk, name: nomeLongo } },
+  args: { monster: { ...pyrelisk, name: longName } },
   play: async ({ canvas }) => {
-    const banner = canvas.getByRole('heading', { name: nomeLongo });
+    const banner = canvas.getByRole('heading', { name: longName });
 
     await expect(banner.scrollWidth).toBeGreaterThan(banner.clientWidth);
   },

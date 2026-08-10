@@ -53,6 +53,13 @@ export default defineConfig({
     ],
   },
 
+  // Roda no `.vite-hooks/pre-commit`, só sobre o que está staged. `--fix` porque
+  // formato e lint são mecânicos: falhar o commit por aspa dupla seria ruído.
+  staged: {
+    '*.{ts,tsx,js,mjs}': 'vp check --fix',
+    '*.{json,md,yaml,yml,css}': 'vp fmt',
+  },
+
   run: {
     cache: true,
     tasks: {

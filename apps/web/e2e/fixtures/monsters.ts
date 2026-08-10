@@ -113,41 +113,41 @@ const byName = (name: string): Monster => {
 export const AUROX = byName('Aurox');
 export const BRONTOR = byName('Brontor');
 
-export const DUELO = {
-  vencedor: 'Aurox',
-  perdedor: 'Brontor',
-  golpes: 7,
+export const DUEL = {
+  winner: 'Aurox',
+  loser: 'Brontor',
+  hits: 7,
   rounds: 4,
-  danoDoAurox: 150,
-  danoDoBrontor: 3,
-  hpFinalDoAurox: 102,
-  hpFinalDoBrontor: 0,
+  auroxDamage: 150,
+  brontorDamage: 3,
+  auroxFinalHp: 102,
+  brontorFinalHp: 0,
 } as const;
 
-export const DUELO_ESPELHADO = {
-  vencedor: 'Aurox',
-  perdedor: 'Brontor',
-  golpes: 7,
+export const MIRRORED_DUEL = {
+  winner: 'Aurox',
+  loser: 'Brontor',
+  hits: 7,
   rounds: 4,
-  danoDoBrontor: 3,
-  danoDoAurox: 150,
-  hpFinalDoBrontor: 0,
-  hpFinalDoAurox: 102,
+  brontorDamage: 3,
+  auroxDamage: 150,
+  brontorFinalHp: 0,
+  auroxFinalHp: 102,
 } as const;
 
 export const SOMBRASTRO = {
-  nome: 'Sombrastro',
-  ataque: '90',
-  defesa: '60',
-  velocidade: '65',
+  name: 'Sombrastro',
+  attack: '90',
+  defense: '60',
+  speed: '65',
   hp: '105',
-  imagem: art('#2b1d4a'),
+  image: art('#2b1d4a'),
 } as const;
 
-export const DUELO_DO_CADASTRO = {
-  vencedor: SOMBRASTRO.nome,
-  golpes: 9,
+export const REGISTRATION_DUEL = {
+  winner: SOMBRASTRO.name,
+  hits: 9,
   rounds: 5,
-  danoDoSombrastro: 150,
-  danoDoBrontor: 4,
+  sombrastroDamage: 150,
+  brontorDamage: 4,
 } as const;
