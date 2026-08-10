@@ -1,0 +1,4 @@
+@import '@arena/ui/styles.css';
+
+/* O Tailwind precisa varrer as fontes do app além das do pacote. */
+@source "./";
