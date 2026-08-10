@@ -1,0 +1,23 @@
+{
+  "name": "@arena/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./monster": "./src/monster.ts",
+    "./battle": "./src/battle.ts",
+    "./errors": "./src/errors.ts"
+  },
+  "scripts": {
+    "test:mutation": "stryker run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "catalog:",
+    "@stryker-mutator/vitest-runner": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
