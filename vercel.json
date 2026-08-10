@@ -1,7 +1,0 @@
-{
-  "framework": null,
-  "installCommand": "curl -fsSL https://vite.plus | bash && \"$HOME/.vite-plus/bin/vp\" install",
-  "buildCommand": "\"$HOME/.vite-plus/bin/vp\" -C apps/web build",
-  "outputDirectory": "apps/web/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
