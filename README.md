@@ -531,18 +531,21 @@ PR não publica.
 Cinco coisas que o workflow resolve e que um clone novo não resolve sozinho:
 
 - **Ter o `vp` e o Node certos.** Todo job roda **dentro** da imagem oficial
-  `ghcr.io/voidzero-dev/vite-plus:latest`, que já traz o CLI e provisiona o Node
-  lendo o `engines.node` da raiz. Por isso não há `setup-node` no workflow: seria
-  uma segunda fonte de verdade para a versão do Node, e a que perde. A imagem
-  roda como o usuário não-root `vp` e o runner cria o diretório de trabalho como
-  root, daí o `options: --user root` em cada `container:`.
+  `ghcr.io/voidzero-dev/vite-plus`, que já traz o CLI e provisiona o Node lendo o
+  `engines.node` da raiz. Por isso não há `setup-node` no workflow: seria uma
+  segunda fonte de verdade para a versão do Node, e a que perde. A imagem roda
+  como o usuário não-root `vp` e o runner cria o diretório de trabalho como root,
+  daí o `options: --user root` em cada `container:`.
 
-  A tag é `latest` e não a do catálogo, e isso tem um custo conhecido: o pacote
-  `vite-plus` que o `vp install` põe no workspace é o companion local desse mesmo
-  CLI. No dia em que sair uma versão nova da imagem, o par se desfaz sozinho —
-  sem ninguém mudar uma linha do repositório. Se um job começar a falhar em algo
-  que passa na máquina, compare `vp --version` no log com `vite-plus` em
-  `pnpm-workspace.yaml` **antes** de procurar em qualquer outro lugar.
+  A tag é **fixa** (`:0.2.8`), e não `latest`: o pacote `vite-plus` que o
+  `vp install` põe no workspace é o companion local desse mesmo CLI, e os dois
+  precisam bater. Com `latest`, o par se desfaria sozinho no dia em que saísse
+  uma versão nova, sem ninguém mudar uma linha do repositório — uma build que
+  quebra por conta própria, num dia qualquer. **Ao subir a tag, suba junto o
+  `vite-plus` do catálogo em `pnpm-workspace.yaml`**; são três lugares (a tag no
+  `ci.yml`, a do `Dockerfile` e o catálogo) e o repositório não tem como
+  confrontá-los sozinho.
+
 - **Instalar o Chromium do Playwright**, com
   `vp -C <pacote> exec playwright install --with-deps chromium`. Sem esse passo
   a suíte de stories e o E2E falham num ambiente limpo, e essa era exatamente a
