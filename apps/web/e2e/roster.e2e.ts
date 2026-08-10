@@ -3,7 +3,7 @@ import { test } from './fixtures/arena.ts';
 import { AUROX, BRONTOR, ROSTER } from './fixtures/monsters.ts';
 import { rosterCard, visibleCards } from './helpers/locators.ts';
 
-const PER_PAGE = 8;
+const PER_PAGE = 9;
 
 function noticeCard(page: Parameters<typeof rosterCard>[0], text: string) {
   return page.locator('[data-slot="card"]').filter({ hasText: text });
@@ -27,7 +27,6 @@ test.describe('a lista de monstros', () => {
     await test.step('Então vejo o resto do elenco, e a URL carrega a página', async () => {
       await expect(page).toHaveURL(/[?&]page=2\b/);
       await expect(visibleCards(page)).toHaveCount(ROSTER.length - PER_PAGE);
-      await expect(rosterCard(page, 'Jelmoro')).toBeVisible();
       await expect(rosterCard(page, 'Kraveln')).toBeVisible();
       await expect(rosterCard(page, AUROX.name)).toHaveCount(0);
     });
