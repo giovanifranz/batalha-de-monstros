@@ -17,11 +17,11 @@ diferentes.**
 | Destino          | O que é                                                                                                                                             |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **GitHub Pages** | O **Storybook** — a biblioteca de componentes, estado por estado. **Não é o app.** Não dá para cadastrar um monstro nem assistir a uma batalha ali. |
-| **Vercel**       | O **app rodando** — é onde o jogo acontece de verdade. Publicado à parte; veja [Deploy](#deploy).                                                   |
+| **Container**    | O **app rodando** — é onde o jogo acontece de verdade. Publicado à parte, por imagem Docker; veja [Deploy](#deploy).                                |
 | **Local**        | O caminho garantido para ver o jogo inteiro: os três comandos de [Como rodar](#como-rodar), sem `.env` e sem backend.                               |
 
-O CI publica o Storybook automaticamente; o app vai para a Vercel por um passo
-manual, e a seção de deploy explica por quê.
+O CI publica o Storybook automaticamente; o app sai como imagem de container, e
+a seção de deploy explica como.
 
 ---
 
@@ -296,68 +296,6 @@ O teste de sincronização entre abas usa isso de forma mais interessante ainda:
 dois fakes compartilhando o mesmo `storageEventApi`, escrita num, leitura no
 outro — a funcionalidade de duas abas provada sem abrir duas abas.
 
-### Por que NÃO há classe abstrata de repositório
-
-Uma abstração de repositório é honesta quando a assinatura descreve o meio por
-inteiro. Um cliente HTTP é assim: `get(request, schema)` devolvendo uma
-`Promise` não esconde nada de relevante sobre HTTP, e uma classe abstrata ali
-ganharia algo real.
-
-Persistência via TanStack DB não é assim. O caminho de leitura é
-`useLiveQuery(q => q.from({ monster: roster }))` — **um handle reativo, não uma
-chamada**. Esconder isso atrás de `interface MonsterRepository { list(): Promise<Monster[]> }`
-joga fora a única razão de adotar TanStack DB; expor a coleção _através_ da
-porta faz da porta um wrapper de uma propriedade. Nos dois casos a interface
-paga o preço de uma indireção sem comprar nada.
-
-A metade valiosa da ideia — **tradução de erro de infra para erro de
-domínio** — fica de pé sem classe nenhuma: `findMonster` transforma
-`undefined` em `MonsterNotFoundError`, e `removeMonster` transforma o
-`DeleteKeyNotFoundError` do TanStack DB no mesmo erro de domínio. Nenhum erro de
-biblioteca vaza para a UI.
-
-Um schema, também: `localStorageCollectionOptions` aceita Standard Schema
-direto, então o `monsterSchema` do `@arena/domain` entra como está. Não há JSON
-Schema paralelo, não há tipo de documento derivado, não há asserção de
-equivalência para manter.
-
----
-
-## O que NÃO foi usado, e por quê
-
-**Um banco embarcado com migração versionada — RxDB e parentes.** A alternativa
-foi avaliada a sério: um spike sobre `rxdb` + `@tanstack/rxdb-db-collection`,
-medido neste repositório em vez de lido na documentação. O que ele custaria:
-
-- **+280,7 kB crus / +82,6 kB gzip** para guardar seis números por monstro.
-- **`devMode: true` lança `DVM1`** com qualquer storage cujo nome não comece com
-  `validate-`. O do Dexie se chama `'dexie'` — ou seja, ligar o dev-mode mata o
-  app na entrada, em desenvolvimento.
-- **O dev-mode injeta um iframe 1×1 apontando para `rxdb.info`.** O guard de
-  localhost está comentado na fonte publicada.
-- **`@tanstack/rxdb-db-collection@0.1.83` declara `rxdb: "16.21.1"` como
-  dependência direta com pin exato.** Qualquer bump exige mover três pacotes
-  juntos ou conviver com duas cópias e dois tipos `RxCollection` que não
-  unificam.
-- **Dois schemas para o mesmo dado** — o JSON Schema do banco e o zod do domínio
-  —, que é uma classe de bug inteira: o piso de `hp` divergindo entre a
-  declaração do banco e a do domínio.
-
-O que o `@tanstack/db` já traz, e que já era dependência do `useLiveQuery`,
-cobre o que este app precisa: `localStorageCollectionOptions`. Custo marginal
-**zero kB**. Entrega persistência, consulta reativa e sincronização entre abas,
-e apaga por construção a classe de bug dos dois schemas.
-
-O que se perde é migração versionada de schema — e ela não serviria aqui de
-qualquer forma, porque o JSON Schema do banco não carregaria o teto de
-balanceamento, que é justamente a regra sujeita a mudar.
-
-Também ficaram de fora, pelo mesmo critério: **`@tanstack/react-query`** (sem
-rede, sobrariam um `QueryClientProvider` sem queries e um contexto que ninguém
-lê) e **`@tanstack/query-db-collection`** (é para coleção alimentada por
-`queryFn` contra uma API; sem backend seria reimplementar persistência à mão
-dentro de handlers).
-
 ---
 
 ## Estrutura do monorepo
@@ -396,7 +334,6 @@ Toda dependência entra como `catalog:`, com a versão declarada uma única vez 
   runner, lint, format, type-check e testes. `vp check` é uma passada só, e não
   há quatro configurações para manter em acordo. Custo: `vp` é global e precisa
   ser instalado; e é isso que complica o deploy (veja [Deploy](#deploy)).
-- **Por que não há classe abstrata de repositório** — seção própria acima.
 - **O motor indexa por lado (`left`/`right`), não por id.** A batalha não precisa
   saber quem são os monstros para reproduzir o log; `BattleResult` carrega
   `startHp` e é autossuficiente.
@@ -593,14 +530,19 @@ PR não publica.
 
 Cinco coisas que o workflow resolve e que um clone novo não resolve sozinho:
 
-- **Instalar o `vp`.** Ele é um CLI global; não sai do `node_modules` e nenhum
-  `actions/setup-node` o traz. Com `CI` no ambiente o instalador não pergunta
-  nada e liga o gerenciador de Node dele — é ele quem entrega o Node do
-  `engines.node`. Por isso não há `setup-node` no workflow: seria uma segunda
-  fonte de verdade para a versão do Node, e a que perde. A versão do `vp` não é
-  "a mais nova que houver": o passo lê `vite-plus` do catálogo em
-  `pnpm-workspace.yaml`, exporta `VP_VERSION` e depois **confere** que o binário
-  instalado bate. Era o único ponto do build que não estava fixado.
+- **Ter o `vp` e o Node certos.** Todo job roda **dentro** da imagem oficial
+  `ghcr.io/voidzero-dev/vite-plus:latest`, que já traz o CLI e provisiona o Node
+  lendo o `engines.node` da raiz. Por isso não há `setup-node` no workflow: seria
+  uma segunda fonte de verdade para a versão do Node, e a que perde. A imagem
+  roda como o usuário não-root `vp` e o runner cria o diretório de trabalho como
+  root, daí o `options: --user root` em cada `container:`.
+
+  A tag é `latest` e não a do catálogo, e isso tem um custo conhecido: o pacote
+  `vite-plus` que o `vp install` põe no workspace é o companion local desse mesmo
+  CLI. No dia em que sair uma versão nova da imagem, o par se desfaz sozinho —
+  sem ninguém mudar uma linha do repositório. Se um job começar a falhar em algo
+  que passa na máquina, compare `vp --version` no log com `vite-plus` em
+  `pnpm-workspace.yaml` **antes** de procurar em qualquer outro lugar.
 - **Instalar o Chromium do Playwright**, com
   `vp -C <pacote> exec playwright install --with-deps chromium`. Sem esse passo
   a suíte de stories e o E2E falham num ambiente limpo, e essa era exatamente a
@@ -622,10 +564,17 @@ Cinco coisas que o workflow resolve e que um clone novo não resolve sozinho:
   refs diferentes, o que dá dois grupos de `concurrency` e o dobro de jobs por
   push, nenhum cancelando o outro.
 
-**Este workflow nunca foi executado** — o repositório não tem remote
-configurado. Os comandos dentro dele são os mesmos verificados à mão neste
-ambiente; a montagem do runner (instalador do Vite+ no Ubuntu, `--with-deps`,
-as actions do Pages) não foi.
+**Este workflow rodou uma vez, e morreu antes de testar coisa alguma.** Os
+quatro jobs pararam no mesmo passo, o que instalava o `vp` por `curl | bash`:
+`vp --version | head -n1` fechava o cano na primeira das 17 linhas de saída, o
+binário (que é Rust, e Rust ignora SIGPIPE em vez de morrer quieto) entrava em
+pânico com `Broken pipe (os error 32)` e saía com 134 — que o `pipefail` do
+shell promovia a código do passo. Esse passo não existe mais: quem entrega o
+`vp` agora é a imagem.
+
+O que continua **não verificado** é a montagem do runner com `container:` — o
+`--user root`, o `--with-deps` e as actions do Pages rodando dentro da imagem.
+Os comandos em si são os mesmos verificados à mão neste ambiente.
 
 ---
 
@@ -643,7 +592,7 @@ com `pages: write` / `id-token: write` e um `environment: github-pages`. Nada de
 empurrar uma branch `gh-pages` à mão.
 
 Um repositório tem **um** site do Pages, e ele é do Storybook. O app não entra
-nesse artefato: ele vai para a Vercel, abaixo.
+nesse artefato: ele sai como imagem de container, abaixo.
 
 **O prefixo do site (`base`) é a única coisa que pode dar errado aqui**, e ela
 falha em silêncio: um `base` errado publica uma página que abre com todo asset
@@ -695,74 +644,36 @@ O roteamento do Storybook é por query param, não por caminho, então não há 
 a reescrever e **nenhum `404.html` é necessário** — o que também significa que
 nada aqui depende do truque de fallback que um SPA precisaria no Pages.
 
-### Vercel — o app
+### Docker — o app
 
-O `vercel.json` está no repositório:
-
-```json
-{
-  "framework": null,
-  "installCommand": "curl -fsSL https://vite.plus | bash && \"$HOME/.vite-plus/bin/vp\" install",
-  "buildCommand": "\"$HOME/.vite-plus/bin/vp\" -C apps/web build",
-  "outputDirectory": "apps/web/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
-```
-
-**O `rewrites` não é opcional, seja qual for o caminho escolhido abaixo.** O
-roteamento é client-side; servindo o `dist` sem reescrita, `/` responde 200 e
-`/battle` e `/monsters/new` respondem **404** — verificado com um servidor
-estático local.
-
-O `buildCommand` é `vp -C apps/web build` porque `vp run web#build` e
-`vp run -t web#build` não resolvem (`Task "web#build" not found`). Já
-`vp run -r build` **funciona** — é a última etapa do `ready` — e serviria
-igualmente; a diferença é que ele passa pelo task runner, com cache e grafo de
-dependências. O caminho absoluto para o `vp` existe porque a Vercel roda
-`installCommand` e `buildCommand` em processos separados: o `export PATH` que o
-instalador faz no primeiro não chega ao segundo.
-
-#### Construa localmente e publique pronto — o caminho recomendado
+O `Dockerfile` na raiz, em dois estágios:
 
 ```bash
-vp dlx vercel build          # usa o buildCommand acima, na SUA máquina
-vp dlx vercel deploy --prebuilt --prod
+docker build -t arena-web .
+docker run --rm -p 8080:8080 arena-web
 ```
 
-`vercel build` produz `.vercel/output` e `deploy --prebuilt` envia esse
-diretório sem construir nada do lado da Vercel. Como a saída aqui é estática
-pura — zero Vercel Functions —, **não há runtime de Node do lado da plataforma
-para satisfazer**, e o problema abaixo simplesmente não acontece. O
-`engines.node` do repositório continua intocado.
+O estágio de build é a imagem oficial `ghcr.io/voidzero-dev/vite-plus`, que já
+traz o `vp` e provisiona o Node pelo `engines.node`. **É o que faz a versão do
+Node ser decidida dentro do container**, e não pela imagem de build de uma
+plataforma — e é a razão de o container ser o caminho de deploy daqui: a
+`engines.node` deste repositório é `>= 26`, e plataformas de build costumam
+oferecer 20/22/24, resolvendo isso **antes** de qualquer comando de instalação
+rodar, quando o `vp` que traria o Node certo ainda nem existe. O estágio final é
+um `nginx:1-alpine` com os estáticos e nada mais — sem Node, sem `vp`, sem
+`node_modules`.
 
-Ressalva honesta: **não verifiquei se o `vercel build` local também aplica o
-`engines.node`** antes de rodar o `buildCommand`. Se aplicar, ele o aplica na
-sua máquina, que tem o Node 26 que o repositório pede — o que é justamente o
-caso em que a checagem passa.
+O `docker/nginx.conf.template` existe por uma razão só, e ela não é opcional: o
+roteamento do app é client-side. Sem `try_files $uri $uri/ /index.html`, `/`
+responde 200 e `/battle` e `/monsters/new` respondem **404** — servir o `dist`
+com um estático qualquer não basta. `/assets/` sai com `immutable` (os nomes têm
+hash) e o `index.html` com `no-store` (é ele que aponta para o hash da vez). A
+porta vem de `PORT` (padrão 8080), para as plataformas que a injetam no
+ambiente.
 
-#### Construir na Vercel: o que quebra, e o que custa consertar
-
-Se a build rodar na Vercel em vez de localmente, ela **não sobe**. A
-documentação da Vercel lista Node **20.x, 22.x e 24.x** como as versões
-disponíveis na imagem de build, e a raiz declara `"engines": { "node": ">=26" }`.
-Nenhuma versão disponível satisfaz essa faixa, e a resolução acontece ao
-preparar o container — **antes** do `installCommand`, o que significa que o
-`vp`, que traria o próprio Node, nunca chega a ser instalado.
-
-Alargar o `engines.node` resolve, e não é de graça. O `vp` não pega "a mais nova
-que satisfaz", pega a LTS mais nova que satisfaz. Medido aqui, com o mesmo `vp`
-e diretórios limpos:
-
-| `engines.node` | Node que o `vp` entrega |
-| -------------- | ----------------------- |
-| `>=26`         | 26.7.0                  |
-| `>=22`         | **24.19.0**             |
-
-Como toda faixa que a Vercel resolve precisa incluir a 24 ou menos, **não existe
-faixa que mantenha a 26 aqui e satisfaça a Vercel ao mesmo tempo**. Alargar é
-aceitar rodar o projeto na 24 nos dois lugares — e é exatamente por isso que o
-caminho `--prebuilt` acima é o recomendado, e por que este commit não mexeu no
-`engines.node`.
+Verificado com a imagem construída localmente: `/`, `/battle` e `/monsters/new`
+respondem 200; `/assets/nao-existe.js` responde 404 em vez de cair no fallback;
+o app renderiza sem erro de console.
 
 ---
 
@@ -806,14 +717,12 @@ Nenhuma destas é surpresa; todas estão anotadas no código também.
   dependa da identidade do evento. Anotado em `collection.ts`.
 - **~5 MB de `localStorage`**, e `image_url` é texto livre. Veja
   [O teto de ~5 MB](#o-teto-de-5-mb).
-- **Construir o app _na_ Vercel exige baixar o Node do projeto para a 24.** Não
-  há faixa de `engines.node` que sirva à imagem de build da Vercel e mantenha a
-  26 aqui. O caminho `vercel deploy --prebuilt` evita o problema inteiro; veja
-  [Vercel — o app](#vercel--o-app).
-- **O `vercel build` local não foi testado contra o `engines.node`.** Ele roda
-  na sua máquina, onde o Node 26 existe, mas eu não confirmei se ele chega a
-  checar.
-- **O workflow de CI nunca rodou.** Veja
+- **A imagem publica estáticos, e só.** Não há preview por PR, CDN, domínio nem
+  TLS configurados aqui: o `Dockerfile` entrega um nginx servindo o `dist` numa
+  porta, e o resto é de quem hospeda. Veja [Docker — o app](#docker--o-app).
+- **O workflow de CI em container nunca rodou.** A execução anterior morreu no
+  passo que instalava o `vp`, antes de qualquer teste; a montagem atual só é
+  exercitada no primeiro push. Veja
   [Integração contínua](#integração-contínua).
 - **A regressão visual tem um piso de cor de ~5% de luminância**, e cada
   ambiente carrega a própria baseline. Os dois números e o porquê estão em
