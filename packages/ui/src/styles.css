@@ -1,0 +1,274 @@
+@import 'tailwindcss';
+@import 'shadcn/tailwind.css';
+
+/* Fontes locais — nada de CDN externo. */
+@import '@fontsource-variable/outfit';
+@import '@fontsource/space-mono/400.css';
+@import '@fontsource/space-mono/700.css';
+@import '@fontsource/press-start-2p';
+
+/* Sem @source o Tailwind não varre os componentes do pacote e as classes somem do build. */
+@source "./";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Retro Arcade — tema oficial do app.
+   Neon rosa (primary) + ciano (secondary) + laranja (accent), cantos de 4px.
+--------------------------------------------------------------------------- */
+
+:root {
+  --background: oklch(0.9735 0.0261 90.0953);
+  --foreground: oklch(0.3092 0.0518 219.6516);
+  --card: oklch(0.9306 0.026 92.402);
+  --card-foreground: oklch(0.3092 0.0518 219.6516);
+  --popover: oklch(0.9306 0.026 92.402);
+  --popover-foreground: oklch(0.3092 0.0518 219.6516);
+  --primary: oklch(0.5924 0.2025 355.8943);
+  --primary-foreground: oklch(1 0 0);
+  /* Branco em cima: 5.03 em repouso, 6.34 no hover. C no máximo em gamut sRGB
+     arredondado para baixo — fora do gamut quem decide a cor pintada é o
+     algoritmo de mapeamento do navegador, e a medição deixa de valer. */
+  --secondary: oklch(0.53 0.092 187.384);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.6979 0.0159 196.794);
+  --muted-foreground: oklch(0.3092 0.0518 219.6516);
+  --accent: oklch(0.5808 0.1732 39.5003);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.5863 0.2064 27.1172);
+  /* O tema fornecido não define este token, mas os componentes shadcn usam. */
+  --destructive-foreground: oklch(1 0 0);
+  /*
+   * TEXTO destrutivo é um token SEPARADO do preenchimento (`--destructive` é a
+   * cor do TINT). Enquanto os dois eram o mesmo, SUBIR a opacidade do tint
+   * PIORAVA o contraste em vez de melhorá-lo: /10 = 3.79, /20 = 3.34, /30 = 2.93.
+   *
+   * Pior caso medido no claro: 4.67 (hover `/20` no rodapé do AlertDialog).
+   * ATENÇÃO ao acrescentar consumidor — o token NÃO passa sobre `--muted` sólido
+   * (3.89), então texto destrutivo interativo precisa de um HOVER que também seja
+   * tint de `--destructive`, nunca o cinza de um `ghost`.
+   */
+  --destructive-ink: oklch(0.39 0.158 27.1172);
+  --border: oklch(0.6537 0.0197 205.2618);
+  --input: oklch(0.6537 0.0197 205.2618);
+  --ring: oklch(0.5924 0.2025 355.8943);
+  --chart-1: oklch(0.6149 0.1394 244.9273);
+  --chart-2: oklch(0.6437 0.1019 187.384);
+  --chart-3: oklch(0.5924 0.2025 355.8943);
+  --chart-4: oklch(0.5808 0.1732 39.5003);
+  --chart-5: oklch(0.5863 0.2064 27.1172);
+  --sidebar: oklch(0.9735 0.0261 90.0953);
+  --sidebar-foreground: oklch(0.3092 0.0518 219.6516);
+  --sidebar-primary: oklch(0.5924 0.2025 355.8943);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.53 0.092 187.384);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.6537 0.0197 205.2618);
+  --sidebar-ring: oklch(0.5924 0.2025 355.8943);
+  --radius: 0.25rem;
+
+  /* --- Camada da arena (usada só dentro de .arena) --- */
+  --arena-sky: oklch(0.6149 0.1394 244.9273);
+  --arena-ground: oklch(0.6437 0.1019 187.384);
+  --hp-high: oklch(0.6437 0.1019 187.384);
+  --hp-mid: oklch(0.5808 0.1732 39.5003);
+  --hp-low: oklch(0.5863 0.2064 27.1172);
+}
+
+.dark {
+  --background: oklch(0.2673 0.0486 219.8169);
+  --foreground: oklch(0.6979 0.0159 196.794);
+  --card: oklch(0.3092 0.0518 219.6516);
+  --card-foreground: oklch(0.6979 0.0159 196.794);
+  --popover: oklch(0.3092 0.0518 219.6516);
+  --popover-foreground: oklch(0.6979 0.0159 196.794);
+  --primary: oklch(0.5924 0.2025 355.8943);
+  --primary-foreground: oklch(1 0 0);
+  /* Mesmo valor e mesma medicao do bloco `:root`. */
+  --secondary: oklch(0.53 0.092 187.384);
+  --secondary-foreground: oklch(1 0 0);
+  /* L baixado de 0.523: com --muted-foreground em cima dava 2.01 (reprova ate texto grande). */
+  --muted: oklch(0.328 0.0283 219.1365);
+  --muted-foreground: oklch(0.6979 0.0159 196.794);
+  --accent: oklch(0.5808 0.1732 39.5003);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.5863 0.2064 27.1172);
+  --destructive-foreground: oklch(1 0 0);
+  /* No escuro o texto sobe em vez de descer; pior caso medido 5.14 (hover `/30`
+     no rodapé do AlertDialog). Uma cor só não serve aos dois temas. */
+  --destructive-ink: oklch(0.78 0.125 27.1172);
+  --border: oklch(0.523 0.0283 219.1365);
+  --input: oklch(0.523 0.0283 219.1365);
+  --ring: oklch(0.5924 0.2025 355.8943);
+  --chart-1: oklch(0.6149 0.1394 244.9273);
+  --chart-2: oklch(0.6437 0.1019 187.384);
+  --chart-3: oklch(0.5924 0.2025 355.8943);
+  --chart-4: oklch(0.5808 0.1732 39.5003);
+  --chart-5: oklch(0.5863 0.2064 27.1172);
+  --sidebar: oklch(0.2673 0.0486 219.8169);
+  --sidebar-foreground: oklch(0.6979 0.0159 196.794);
+  --sidebar-primary: oklch(0.5924 0.2025 355.8943);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.53 0.092 187.384);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.523 0.0283 219.1365);
+  --sidebar-ring: oklch(0.5924 0.2025 355.8943);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-ink: var(--destructive-ink);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-arena-sky: var(--arena-sky);
+  --color-arena-ground: var(--arena-ground);
+  --color-hp-high: var(--hp-high);
+  --color-hp-mid: var(--hp-mid);
+  --color-hp-low: var(--hp-low);
+
+  --font-sans: 'Outfit Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
+  --font-pixel: 'Press Start 2P', 'Space Mono', monospace;
+
+  --spacing: 0.25rem;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  .arena {
+    font-family: var(--font-pixel);
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  /* Opt-in, hoje sem consumidor: `image_url` é texto livre e pixelar uma foto qualquer só suja. */
+  img[data-pixel] {
+    image-rendering: pixelated;
+  }
+
+  /* Wordmark do header: única exceção à regra "pixel só na arena". */
+  .wordmark {
+    font-family: var(--font-pixel);
+  }
+}
+
+@keyframes lunge-right {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(18px, -10px);
+  }
+}
+
+@keyframes lunge-left {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(-18px, 10px);
+  }
+}
+
+@keyframes hit-flash {
+  0%,
+  100% {
+    opacity: 1;
+    filter: none;
+  }
+  25%,
+  75% {
+    opacity: 0.25;
+    filter: brightness(3);
+  }
+}
+
+/* Sem `opacity`: o axe mede contraste com a opacidade aplicada, e a carta
+   derrotada continua carregando texto que precisa passar AA. */
+@keyframes defeat-drop {
+  to {
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+/* Só `transform`, mesmo motivo do `defeat-drop`. */
+@keyframes hit-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes idle-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
