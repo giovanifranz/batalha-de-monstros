@@ -107,6 +107,30 @@ falha em erros de tipo que não são do seu commit. Rode um dos dois primeiro.
 
 Para pular os hooks numa máquina ou num processo: `VP_GIT_HOOKS=0 git commit`.
 
+### Aprovando uma mudança visual num PR
+
+A baseline da regressão visual vive no cache do Actions, é por sistema **e por
+arquitetura**, e só a branch padrão a gravava. Consequência: uma mudança visual
+intencional reprovava o job para sempre, porque um PR não tinha como aprovar nada
+— e aprovar localmente não serve, já que a sua captura é do seu sistema e a do CI
+é Linux X64.
+
+O caminho é a label **`vrt-approved`** no PR:
+
+1. Abra o artefato `visual-report` da execução que reprovou e confira que cada
+   diferença é a pretendida.
+2. Ponha a label `vrt-approved` no PR. Isso redispara o CI — `labeled` está nos
+   `types` do trigger justamente para isso.
+3. O job passa a rodar `vp run vrt:approve` em vez de comparar, e grava a baseline
+   no cache sob o sha do PR. Como o `restore-keys` casa por prefixo e devolve a
+   entrada mais recente, essa baseline passa a valer também para a branch padrão,
+   e o merge entra verde.
+
+Quem põe a label auto-aprova: ela vale exatamente o que valer a conferida do
+relatório. E há um custo a conhecer — aprovar e depois **abandonar** o PR deixa
+uma baseline não mesclada como a mais recente, e a próxima execução da branch
+padrão reprova até alguém regravar.
+
 Duas formas que **não** funcionam, para não serem redescobertas:
 
 - `vp run -C apps/web test:e2e` → `Task "-C" not found`. O `-C <dir>` é opção
